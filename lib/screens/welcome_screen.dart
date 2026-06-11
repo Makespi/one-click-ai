@@ -24,6 +24,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
   late final AnimationController _glowController;
   bool? _claudeInstalled;
   bool _showUninstall = false;
+  bool _isUninstalling = false;
   final List<String> _uninstallOutput = [];
 
   @override
@@ -44,6 +45,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
   Future<void> _doUninstall() async {
     setState(() {
       _showUninstall = true;
+      _isUninstalling = true;
       _uninstallOutput.add('正在卸载...');
     });
     final result = await InstallService().uninstallClaudeCode(
@@ -55,11 +57,13 @@ class _WelcomeScreenState extends State<WelcomeScreen>
       if (result.success) {
         setState(() {
           _claudeInstalled = false;
+          _isUninstalling = false;
           _uninstallOutput.add('');
           _uninstallOutput.add('✓ 卸载成功');
         });
       } else {
         setState(() {
+          _isUninstalling = false;
           _uninstallOutput.add('');
           _uninstallOutput.add('✗ 卸载失败: ${result.error}');
         });
@@ -203,8 +207,13 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                               children: [
                                 Center(
                                   child: _StartButton(
-                                    label: _claudeInstalled == true ? '开始配置' : '开始安装',
-                                    onPressed: () {
+                                    label: _claudeInstalled == true
+                                        ? '开始配置'
+                                        : '开始安装',
+                                    isLoading: _isUninstalling,
+                                    onPressed: _isUninstalling
+                                        ? null
+                                        : () {
                                       final isInstalled = _claudeInstalled == true;
                                       if (isInstalled) {
                                         Navigator.of(context).push(
@@ -235,6 +244,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                                     left: centerX + startButtonHalf + 12,
                                     top: 0,
                                     child: _UninstallButton(onTap: () {
+                                      if (_isUninstalling) return;
                                       if (_showUninstall) {
                                         setState(() {
                                           _showUninstall = false;
@@ -552,10 +562,11 @@ class _SystemCard extends StatelessWidget {
 }
 
 class _StartButton extends StatefulWidget {
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
   final String label;
+  final bool isLoading;
 
-  const _StartButton({required this.onPressed, this.label = '开始安装'});
+  const _StartButton({required this.onPressed, this.label = '开始安装', this.isLoading = false});
 
   @override
   State<_StartButton> createState() => _StartButtonState();
@@ -564,51 +575,74 @@ class _StartButton extends StatefulWidget {
 class _StartButtonState extends State<_StartButton> {
   bool _hovered = false;
 
+  bool get _disabled => widget.onPressed == null || widget.isLoading;
+
   @override
   Widget build(BuildContext context) {
     return MouseRegion(
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
+      onEnter: _disabled ? null : (_) => setState(() => _hovered = true),
+      onExit: _disabled ? null : (_) => setState(() => _hovered = false),
       child: GestureDetector(
-        onTap: widget.onPressed,
+        onTap: _disabled ? null : widget.onPressed,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           width: 250,
           height: 56,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
-            gradient: LinearGradient(
-              colors: _hovered
-                  ? [AppColors.primaryLight, AppColors.accentLight]
-                  : [AppColors.primary, AppColors.accent],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            boxShadow: _hovered
-                ? [
-                    BoxShadow(
-                      color: AppColors.primary.withValues(alpha: 0.4),
-                      blurRadius: 20,
-                      offset: const Offset(0, 6),
-                    ),
-                  ]
-                : [
-                    BoxShadow(
-                      color: AppColors.primary.withValues(alpha: 0.2),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
+            color: _disabled ? AppColors.surfaceHover : null,
+            gradient: _disabled
+                ? null
+                : LinearGradient(
+                    colors: _hovered
+                        ? [AppColors.primaryLight, AppColors.accentLight]
+                        : [AppColors.primary, AppColors.accent],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+            boxShadow: _disabled
+                ? []
+                : _hovered
+                    ? [
+                        BoxShadow(
+                          color: AppColors.primary.withValues(alpha: 0.4),
+                          blurRadius: 20,
+                          offset: const Offset(0, 6),
+                        ),
+                      ]
+                    : [
+                        BoxShadow(
+                          color: AppColors.primary.withValues(alpha: 0.2),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
           ),
           child: Center(
-            child: Text(
-              widget.label,
-              style: const TextStyle(
-                fontSize: 19,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-                letterSpacing: -0.3,
-              ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (widget.isLoading) ...[
+                  const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppColors.textMuted,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                ],
+                Text(
+                  widget.isLoading ? '卸载中...' : widget.label,
+                  style: TextStyle(
+                    fontSize: 19,
+                    fontWeight: FontWeight.w700,
+                    color: _disabled ? AppColors.textMuted : Colors.white,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
