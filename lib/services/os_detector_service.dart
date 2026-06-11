@@ -91,7 +91,7 @@ class OsDetectorService {
             result.stdout.toString().trim().isNotEmpty) {
           return true;
         }
-        result = Process.runSync('cmd', ['/c', command, '--version'],
+        result = Process.runSync(command, ['--version'],
             runInShell: true);
         return result.exitCode == 0;
       }

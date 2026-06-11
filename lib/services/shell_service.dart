@@ -81,20 +81,14 @@ class ShellService {
     String? workingDirectory,
   }) async {
     try {
-      // On Windows, run through shell to handle .cmd/.bat files
-      final result = _isWindows
-          ? await Process.run(
-              'cmd',
-              ['/c', executable, ...arguments],
-              workingDirectory: workingDirectory,
-              runInShell: true,
-            )
-          : await Process.run(
-              executable,
-              arguments,
-              workingDirectory: workingDirectory,
-              environment: _extendedEnv,
-            );
+      // On Windows, runInShell handles .cmd/.bat files
+      final result = await Process.run(
+        executable,
+        arguments,
+        workingDirectory: workingDirectory,
+        runInShell: _isWindows,
+        environment: _isWindows ? null : _extendedEnv,
+      );
       return ShellResult(
         exitCode: result.exitCode,
         stdout: (result.stdout as String).trim(),
@@ -112,17 +106,17 @@ class ShellService {
   /// Check if a command exists on the system PATH or known install locations.
   Future<bool> commandExists(String command) async {
     if (_isWindows) {
-      // On Windows, try `where` first; also try running `command --version`
       final whereResult = await run('where', [command]);
       if (whereResult.exitCode == 0 && whereResult.stdout.isNotEmpty) {
         return true;
       }
-      // Fallback: try running the command directly
-      final versionResult = await run('cmd', ['/c', command, '--version']);
-      if (versionResult.exitCode == 0) return true;
-      // Also try with .cmd extension
-      final cmdResult = await run('cmd', ['/c', '$command.cmd', '--version']);
-      return cmdResult.exitCode == 0;
+      // Fallback: try running the command directly (runInShell handles .cmd)
+      final versionResult = await Process.run(
+        command,
+        ['--version'],
+        runInShell: true,
+      );
+      return versionResult.exitCode == 0;
     }
     // macOS/Linux: resolve full path including Homebrew locations
     final resolved = await _resolveCommand(command);
@@ -161,22 +155,20 @@ class ShellService {
   }
 
   Future<ShellResult> _runVersionCommand(String command, String flag) async {
-    if (_isWindows) {
-      return await Process.run(
-        'cmd',
-        ['/c', command, flag],
-        runInShell: true,
-      ).then((r) => ShellResult(
-            exitCode: r.exitCode,
-            stdout: (r.stdout as String).trim(),
-            stderr: (r.stderr as String).trim(),
-          )).catchError((_) => const ShellResult(
-            exitCode: -1,
-            stdout: '',
-            stderr: '',
-          ));
+    try {
+      final result = await Process.run(
+        command,
+        [flag],
+        runInShell: _isWindows,
+      );
+      return ShellResult(
+        exitCode: result.exitCode,
+        stdout: (result.stdout as String).trim(),
+        stderr: (result.stderr as String).trim(),
+      );
+    } catch (_) {
+      return const ShellResult(exitCode: -1, stdout: '', stderr: '');
     }
-    return await run(command, [flag]);
   }
 
   /// Run a command with streaming output.
@@ -188,15 +180,10 @@ class ShellService {
     String? workingDirectory,
   }) async {
     try {
-      // On Windows, wrap through cmd /c
-      final processArgs = _isWindows
-          ? ['/c', executable, ...arguments]
-          : arguments;
-      final processExec = _isWindows ? 'cmd' : executable;
-
+      // On Windows, runInShell handles .cmd/.bat; don't double-wrap with cmd /c
       final process = await Process.start(
-        processExec,
-        processArgs,
+        executable,
+        arguments,
         workingDirectory: workingDirectory,
         runInShell: _isWindows,
         environment: _isWindows ? null : _extendedEnv,
