@@ -51,8 +51,8 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                   padding: const EdgeInsets.only(
                     left: 48,
                     right: 48,
-                    top: 28,
-                    bottom: 24,
+                    top: 32,
+                    bottom: 36,
                   ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -136,7 +136,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                             delay: 1300.ms,
                             curve: Curves.easeOutBack,
                           ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 28),
                       Text(
                         'v1.0.0 · macOS · Windows · Linux',
                         style: TextStyle(
