@@ -65,44 +65,44 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ).createShader(bounds),
-                        child: Text(
+                        child: const Text(
                           'One Click AI',
                           style: TextStyle(
-                            fontSize: 44,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -1.0,
+                            fontSize: 52,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: -1.5,
                             color: Colors.white,
-                            height: 1.1,
+                            height: 1.05,
                           ),
                         ),
                       )
                           .animate()
                           .fadeIn(duration: 500.ms, delay: 200.ms)
                           .scale(
-                            begin: const Offset(0.92, 0.92),
+                            begin: const Offset(0.9, 0.9),
                             duration: 500.ms,
                             delay: 200.ms,
                             curve: Curves.easeOutBack,
                           ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 14),
                       Text(
                         '傻瓜式安装自动化 AI 工具',
                         style: TextStyle(
-                          fontSize: 16,
+                          fontSize: 18,
                           fontWeight: FontWeight.w500,
                           color: AppColors.textSecondary,
-                          letterSpacing: -0.2,
+                          letterSpacing: -0.3,
                           height: 1.3,
                         ),
                       )
                           .animate()
                           .fadeIn(duration: 400.ms, delay: 350.ms),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 10),
                       Text(
                         '一键安装 Claude Code，自动配置开发环境。\n跨平台支持，从零到可用只需一次点击。',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          fontSize: 13,
+                          fontSize: 15,
                           fontWeight: FontWeight.w400,
                           color: AppColors.textMuted,
                           height: 1.5,
@@ -203,10 +203,10 @@ class _HeroIcon extends StatelessWidget {
               ),
             ),
             Container(
-              width: 72,
-              height: 72,
+              width: 80,
+              height: 80,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(22),
                 gradient: const LinearGradient(
                   colors: [AppColors.primary, AppColors.accent],
                   begin: Alignment.topLeft,
@@ -222,7 +222,7 @@ class _HeroIcon extends StatelessWidget {
               ),
               child: const Icon(
                 Icons.auto_awesome_rounded,
-                size: 32,
+                size: 36,
                 color: Colors.white,
               ),
             ),
@@ -256,21 +256,21 @@ class _FeatureChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(22),
         border: Border.all(color: AppColors.glassBorder),
         color: AppColors.surfaceCard.withValues(alpha: 0.4),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: AppColors.textSecondary),
-          const SizedBox(width: 6),
+          Icon(icon, size: 16, color: AppColors.textSecondary),
+          const SizedBox(width: 8),
           Text(
             label,
             style: const TextStyle(
-              fontSize: 13,
+              fontSize: 14,
               fontWeight: FontWeight.w500,
               color: AppColors.textSecondary,
             ),
@@ -384,8 +384,8 @@ class _StartButtonState extends State<_StartButton> {
         onTap: widget.onPressed,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          width: 220,
-          height: 50,
+          width: 250,
+          height: 56,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
             gradient: LinearGradient(
@@ -412,13 +412,13 @@ class _StartButtonState extends State<_StartButton> {
                   ],
           ),
           child: Center(
-            child: Text(
+            child: const Text(
               '开始安装',
               style: TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w600,
+                fontSize: 19,
+                fontWeight: FontWeight.w700,
                 color: Colors.white,
-                letterSpacing: -0.2,
+                letterSpacing: -0.3,
               ),
             ),
           ),
