@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../models/platform_info.dart';
 import '../theme/app_theme.dart';
 import '../widgets/custom_title_bar.dart';
+import '../widgets/liquid_background.dart';
 import 'wizard_screen.dart';
 
 class WelcomeScreen extends StatefulWidget {
@@ -40,148 +41,106 @@ class _WelcomeScreenState extends State<WelcomeScreen>
     final platformInfo = context.watch<PlatformInfo>();
 
     return Scaffold(
-      body: Stack(
-        children: [
-          // Subtle background gradient
-          Positioned.fill(
-            child: Container(
-              decoration: const BoxDecoration(
-                gradient: RadialGradient(
-                  center: Alignment(0.0, -0.3),
-                  radius: 1.2,
-                  colors: [
-                    Color(0x1A6366F1),
-                    Colors.transparent,
-                    Colors.transparent,
-                  ],
-                ),
-              ),
-            ),
-          ),
-
-          // Main content
-          Column(
-            children: [
-              const CustomTitleBar(),
-              Expanded(
-                child: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.only(
-                      left: 40,
-                      right: 40,
-                      top: 20,
-                      bottom: 20,
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // ── Hero Icon ──────────────────────────────
-                        _HeroIcon(glowController: _glowController),
-
-                        const SizedBox(height: 28),
-
-                        // ── Headline ───────────────────────────────
-                        Text(
-                          'One Click AI',
-                          style: TextStyle(
-                            fontSize: 32,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: -0.6,
-                            color: AppColors.textPrimary,
-                            height: 1.1,
-                          ),
-                        )
-                            .animate()
-                            .fadeIn(duration: 400.ms, delay: 200.ms),
-
-                        const SizedBox(height: 12),
-
-                        // ── Subtitle ──────────────────────────────
-                        Text(
-                          '傻瓜式安装自动化 AI 工具',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                            color: AppColors.textSecondary,
-                            letterSpacing: -0.2,
-                            height: 1.3,
-                          ),
-                        )
-                            .animate()
-                            .fadeIn(duration: 400.ms, delay: 350.ms),
-
-                        const SizedBox(height: 8),
-
-                        // ── Description ────────────────────────────
-                        Text(
-                          '一键安装 Claude Code，自动配置开发环境。\n跨平台支持，从零到可用只需一次点击。',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w400,
-                            color: AppColors.textMuted,
-                            height: 1.5,
-                          ),
-                        )
-                            .animate()
-                            .fadeIn(duration: 400.ms, delay: 450.ms),
-
-                        const SizedBox(height: 22),
-
-                        // ── Feature Chips ──────────────────────────
-                        _FeatureRow()
-                            .animate()
-                            .fadeIn(duration: 400.ms, delay: 550.ms),
-
-                        const SizedBox(height: 20),
-
-                        // ── System Card ────────────────────────────
-                        _SystemCard(platformInfo: platformInfo)
-                            .animate()
-                            .fadeIn(duration: 400.ms, delay: 700.ms),
-
-                        const SizedBox(height: 22),
-
-                        // ── CTA Button ─────────────────────────────
-                        _StartButton(
-                          onPressed: () {
-                            Navigator.of(context).pushReplacement(
-                              MaterialPageRoute(
-                                builder: (_) => const WizardScreen(),
-                              ),
-                            );
-                          },
-                        )
-                            .animate()
-                            .fadeIn(duration: 600.ms, delay: 1300.ms)
-                            .scale(
-                              begin: const Offset(0.95, 0.95),
-                              duration: 600.ms,
-                              delay: 1300.ms,
-                              curve: Curves.easeOutBack,
+      body: LiquidBackground(
+        child: Column(
+          children: [
+            const CustomTitleBar(),
+            Expanded(
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.only(
+                    left: 40,
+                    right: 40,
+                    top: 20,
+                    bottom: 20,
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _HeroIcon(glowController: _glowController),
+                      const SizedBox(height: 28),
+                      Text(
+                        'One Click AI',
+                        style: TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.6,
+                          color: AppColors.textPrimary,
+                          height: 1.1,
+                        ),
+                      )
+                          .animate()
+                          .fadeIn(duration: 400.ms, delay: 200.ms),
+                      const SizedBox(height: 12),
+                      Text(
+                        '傻瓜式安装自动化 AI 工具',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.textSecondary,
+                          letterSpacing: -0.2,
+                          height: 1.3,
+                        ),
+                      )
+                          .animate()
+                          .fadeIn(duration: 400.ms, delay: 350.ms),
+                      const SizedBox(height: 8),
+                      Text(
+                        '一键安装 Claude Code，自动配置开发环境。\n跨平台支持，从零到可用只需一次点击。',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w400,
+                          color: AppColors.textMuted,
+                          height: 1.5,
+                        ),
+                      )
+                          .animate()
+                          .fadeIn(duration: 400.ms, delay: 450.ms),
+                      const SizedBox(height: 22),
+                      _FeatureRow()
+                          .animate()
+                          .fadeIn(duration: 400.ms, delay: 550.ms),
+                      const SizedBox(height: 20),
+                      _SystemCard(platformInfo: platformInfo)
+                          .animate()
+                          .fadeIn(duration: 400.ms, delay: 700.ms),
+                      const SizedBox(height: 22),
+                      _StartButton(
+                        onPressed: () {
+                          Navigator.of(context).pushReplacement(
+                            MaterialPageRoute(
+                              builder: (_) => const WizardScreen(),
                             ),
-
-                        const SizedBox(height: 16),
-
-                        // ── Footer ─────────────────────────────────
-                        Text(
-                          'v1.0.0 · macOS · Windows · Linux',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w400,
-                            color: AppColors.textMuted.withValues(alpha: 0.6),
+                          );
+                        },
+                      )
+                          .animate()
+                          .fadeIn(duration: 600.ms, delay: 1300.ms)
+                          .scale(
+                            begin: const Offset(0.95, 0.95),
+                            duration: 600.ms,
+                            delay: 1300.ms,
+                            curve: Curves.easeOutBack,
                           ),
-                        )
-                            .animate()
-                            .fadeIn(duration: 400.ms, delay: 1600.ms),
-                      ],
-                    ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'v1.0.0 · macOS · Windows · Linux',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w400,
+                          color: AppColors.textMuted.withValues(alpha: 0.6),
+                        ),
+                      )
+                          .animate()
+                          .fadeIn(duration: 400.ms, delay: 1600.ms),
+                    ],
                   ),
                 ),
               ),
-            ],
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -203,7 +162,6 @@ class _HeroIcon extends StatelessWidget {
         return Stack(
           alignment: Alignment.center,
           children: [
-            // Pulsing glow
             Container(
               width: 110,
               height: 110,
@@ -218,7 +176,6 @@ class _HeroIcon extends StatelessWidget {
                 ),
               ),
             ),
-            // Second glow ring
             Container(
               width: 140,
               height: 140,
@@ -232,7 +189,6 @@ class _HeroIcon extends StatelessWidget {
                 ),
               ),
             ),
-            // Icon container
             Container(
               width: 72,
               height: 72,
