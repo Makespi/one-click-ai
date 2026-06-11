@@ -66,12 +66,17 @@ class _WizardScreenState extends State<WizardScreen> {
   }
 
   /// Go to completion screen.
-  void _goToCompletion() {
+  Future<void> _goToCompletion() async {
     if (!mounted) return;
     final config = context.read<ConfigProvider>();
-    if (!config.isWritten) {
-      config.writeConfig();
+    try {
+      if (!config.isWritten) {
+        await config.writeConfig();
+      }
+    } catch (_) {
+      // Config write failed — still proceed to completion screen
     }
+    if (!mounted) return;
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(builder: (_) => const CompletionScreen()),
     );
@@ -95,7 +100,7 @@ class _WizardScreenState extends State<WizardScreen> {
               conditionsMet: true,
               isLastStep: w.shouldSkipConfigure,
               onAdvance: () => _handleAutoAdvance(w),
-              onComplete: _goToCompletion,
+              onComplete: () => _goToCompletion(),
             );
           }
         }
@@ -140,7 +145,7 @@ class _WizardScreenState extends State<WizardScreen> {
 
 class _BottomNavBar extends StatelessWidget {
   final void Function(int index) onPageChange;
-  final VoidCallback onComplete;
+  final Future<void> Function() onComplete;
 
   const _BottomNavBar({
     required this.onPageChange,
@@ -149,13 +154,14 @@ class _BottomNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final configWatch = context.watch<ConfigProvider>();
     return Consumer<WizardProvider>(
       builder: (context, wizard, _) {
         final isFirst = wizard.currentStepIndex == 0;
         final isLast = wizard.currentStepIndex == 2;
         final prereq = context.read<PrerequisiteProvider>();
         final install = context.read<InstallProvider>();
-        final config = context.read<ConfigProvider>();
+        final config = configWatch; // use the watched value
 
         // Determine if Next button should be enabled
         bool canProceed = false;
