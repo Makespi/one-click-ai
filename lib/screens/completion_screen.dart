@@ -4,9 +4,12 @@ import 'package:provider/provider.dart';
 
 import '../providers/install_provider.dart';
 import '../providers/config_provider.dart';
+import '../providers/wizard_provider.dart';
 import '../theme/app_theme.dart';
+import '../widgets/animated_button.dart';
 import '../widgets/custom_title_bar.dart';
 import '../widgets/glass_container.dart';
+import 'wizard_pages/step_configure.dart';
 
 /// Final screen shown after the installation wizard is complete.
 class CompletionScreen extends StatelessWidget {
@@ -135,30 +138,63 @@ class CompletionScreen extends StatelessWidget {
                     const SizedBox(height: 32),
 
                     // Action buttons
-                    if (hasError)
+                    if (hasError) ...[
                       SizedBox(
                         width: 200,
                         height: 48,
                         child: ElevatedButton(
-                          onPressed: () {
-                            Navigator.of(context).pop();
-                          },
+                          onPressed: () => Navigator.of(context).pop(),
                           child: const Text('返回重试'),
                         ),
                       ),
+                    ],
 
-                    if (isSuccess)
+                    if (isSuccess) ...[
+                      // Re-configure button
                       SizedBox(
-                        width: 200,
+                        width: 260,
                         height: 48,
-                        child: ElevatedButton(
+                        child: ElevatedButton.icon(
                           onPressed: () {
-                            // Close the app
+                            // Go back to the configure page
                             Navigator.of(context).popUntil((route) => route.isFirst);
+                            Navigator.of(context).pushReplacement(
+                              MaterialPageRoute(
+                                builder: (_) => const _DirectConfigureScreen(),
+                              ),
+                            );
                           },
+                          icon: const Icon(Icons.settings, size: 18),
+                          label: const Text('重新配置 API'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 12),
+
+                      // Close button
+                      SizedBox(
+                        width: 260,
+                        height: 48,
+                        child: OutlinedButton(
+                          onPressed: () =>
+                              Navigator.of(context).popUntil((route) => route.isFirst),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.textSecondary,
+                            side: const BorderSide(color: AppColors.glassBorder),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
                           child: const Text('完成'),
                         ),
                       ),
+                    ],
                   ],
                 ),
               ),
@@ -243,6 +279,75 @@ class _SummaryRow extends StatelessWidget {
           style: Theme.of(context).textTheme.labelLarge?.copyWith(color: color),
         ),
       ],
+    );
+  }
+}
+
+// ─── Direct Configure Screen (for re-config after installation) ──
+
+class _DirectConfigureScreen extends StatefulWidget {
+  const _DirectConfigureScreen();
+
+  @override
+  State<_DirectConfigureScreen> createState() => _DirectConfigureScreenState();
+}
+
+class _DirectConfigureScreenState extends State<_DirectConfigureScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final config = context.read<ConfigProvider>();
+      final wizard = context.read<WizardProvider>();
+      wizard.setClaudeAlreadyInstalled(true);
+      wizard.goToStep(WizardStep.configure);
+      config.loadExistingConfig();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final config = context.watch<ConfigProvider>();
+
+    return Scaffold(
+      body: Column(
+        children: [
+          const CustomTitleBar(),
+          Expanded(
+            child: const StepConfigure(),
+          ),
+          // Bottom save bar
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+            decoration: BoxDecoration(
+              color: AppColors.background.withValues(alpha: 0.9),
+              border: Border(top: BorderSide(color: AppColors.glassBorder)),
+            ),
+            child: Row(
+              children: [
+                AnimatedButton(
+                  label: '返回',
+                  onPressed: () => Navigator.of(context).popUntil((route) => route.isFirst),
+                  isPrimary: false,
+                  width: 100,
+                ),
+                const Spacer(),
+                AnimatedButton(
+                  label: '保存配置',
+                  onPressed: config.profile.apiKey?.isNotEmpty == true
+                      ? () async {
+                          final nav = Navigator.of(context);
+                          await config.writeConfig();
+                          nav.popUntil((route) => route.isFirst);
+                        }
+                      : null,
+                  width: 140,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
