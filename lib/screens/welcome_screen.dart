@@ -5,6 +5,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 
 import '../models/platform_info.dart';
+import '../services/install_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/custom_title_bar.dart';
 import '../widgets/liquid_background.dart';
@@ -20,6 +21,7 @@ class WelcomeScreen extends StatefulWidget {
 class _WelcomeScreenState extends State<WelcomeScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _glowController;
+  bool? _claudeInstalled; // null = checking, true/false = result
 
   @override
   void initState() {
@@ -28,6 +30,12 @@ class _WelcomeScreenState extends State<WelcomeScreen>
       vsync: this,
       duration: const Duration(seconds: 3),
     )..repeat();
+    _checkClaudeCode();
+  }
+
+  Future<void> _checkClaudeCode() async {
+    final installed = await InstallService().isClaudeCodeInstalled();
+    if (mounted) setState(() => _claudeInstalled = installed);
   }
 
   @override
@@ -132,6 +140,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                           .fadeIn(duration: 400.ms, delay: 700.ms),
                       const SizedBox(height: 24),
                       _StartButton(
+                        label: _claudeInstalled == true ? '去配置' : '开始安装',
                         onPressed: () {
                           Navigator.of(context).pushReplacement(
                             MaterialPageRoute(
@@ -377,8 +386,9 @@ class _SystemCard extends StatelessWidget {
 
 class _StartButton extends StatefulWidget {
   final VoidCallback onPressed;
+  final String label;
 
-  const _StartButton({required this.onPressed});
+  const _StartButton({required this.onPressed, this.label = '开始安装'});
 
   @override
   State<_StartButton> createState() => _StartButtonState();
@@ -424,9 +434,9 @@ class _StartButtonState extends State<_StartButton> {
                   ],
           ),
           child: Center(
-            child: const Text(
-              '开始安装',
-              style: TextStyle(
+            child: Text(
+              widget.label,
+              style: const TextStyle(
                 fontSize: 19,
                 fontWeight: FontWeight.w700,
                 color: Colors.white,
