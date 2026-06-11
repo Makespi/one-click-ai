@@ -18,6 +18,8 @@ class StepSystemCheck extends StatefulWidget {
 }
 
 class _StepSystemCheckState extends State<StepSystemCheck> {
+  int _countdown = 0; // 0 = no countdown; >0 = counting down
+
   @override
   void initState() {
     super.initState();
@@ -29,45 +31,76 @@ class _StepSystemCheckState extends State<StepSystemCheck> {
   void _runChecks() {
     final prereq = context.read<PrerequisiteProvider>();
     prereq.checkAll().then((_) {
-      _updateWizardState();
+      if (!mounted) return;
+      final prereq = context.read<PrerequisiteProvider>();
+      if (prereq.allReady) {
+        // Everything already installed → jump to install step
+        _autoAdvance();
+      } else if (prereq.canAutoInstall) {
+        // Missing deps + can auto-install → start countdown
+        _startCountdown();
+      }
+      // else: can't auto-install → show manual instructions, user clicks button
     });
   }
 
-  void _updateWizardState() {
-    final prereq = context.read<PrerequisiteProvider>();
-    final wizard = context.read<WizardProvider>();
-    wizard.setCanProceed(prereq.allReady);
+  void _startCountdown() {
+    setState(() => _countdown = 3);
+    Future.doWhile(() async {
+      if (!mounted) return false;
+      await Future.delayed(const Duration(seconds: 1));
+      if (!mounted) return false;
+      if (_countdown <= 1) {
+        setState(() => _countdown = 0);
+        await _installAll();
+        return false;
+      }
+      setState(() => _countdown--);
+      return _countdown > 0;
+    });
+  }
 
-    // Auto-advance to install step when all deps are ready
-    if (prereq.allReady) {
-      wizard.attemptAutoAdvance(
-        conditionsMet: true,
-      );
-    }
+  void _autoAdvance() {
+    if (!mounted) return;
+    final wizard = context.read<WizardProvider>();
+    wizard.attemptAutoAdvance(conditionsMet: true);
   }
 
   Future<void> _autoInstall(String depName) async {
     final prereq = context.read<PrerequisiteProvider>();
-    final success = await prereq.installDependency(depName);
-    if (success) {
-      await prereq.recheckDependency(depName);
-      _updateWizardState();
-    }
+    try {
+      final success = await prereq.installDependency(depName);
+      if (!mounted) return;
+      if (success) {
+        await prereq.recheckDependency(depName);
+      }
+    } catch (_) {}
+    if (!mounted) return;
+    final w = context.read<WizardProvider>();
+    w.setCanProceed(prereq.allReady);
   }
 
-  /// Install all missing dependencies in sequence.
   Future<void> _installAll() async {
+    if (!mounted) return;
     final prereq = context.read<PrerequisiteProvider>();
     final missing = prereq.results
         .where((r) =>
             r.status == PrerequisiteStatus.missing ||
             r.status == PrerequisiteStatus.outdated)
-        .where((r) => r.name != 'npm') // npm comes with Node.js
+        .where((r) => r.name != 'npm')
         .map((r) => r.name)
         .toList();
 
     for (final depName in missing) {
+      if (!mounted) return;
       await _autoInstall(depName);
+    }
+
+    // After all installs, check and auto-advance
+    if (!mounted) return;
+    final p = context.read<PrerequisiteProvider>();
+    if (p.allReady) {
+      _autoAdvance();
     }
   }
 
@@ -141,26 +174,42 @@ class _StepSystemCheckState extends State<StepSystemCheck> {
                 index: i,
                 installState: installState,
                 canAutoInstall: prereq.canAutoInstall &&
-                    result.name != 'npm', // npm comes with Node.js
+                    result.name != 'npm' &&
+                    _countdown == 0, // hide individual buttons during countdown
                 onInstall: () => _autoInstall(result.name),
                 onRecheck: () async {
                   await prereq.recheckDependency(result.name);
-                  _updateWizardState();
+                  if (prereq.allReady) _autoAdvance();
                 },
               ),
             );
           }),
 
-          // "Install All" button for missing dependencies
+          // Countdown / auto-install indicator
           if (!prereq.isChecking &&
               !prereq.allReady &&
-              prereq.canAutoInstall) ...[
+              prereq.canAutoInstall &&
+              !prereq.isAnyInstalling &&
+              _countdown > 0) ...[
+            const SizedBox(height: 8),
+            Center(
+              child: _CountdownBanner(countdown: _countdown),
+            ).animate().fadeIn(duration: 300.ms),
+          ],
+          if (prereq.isAnyInstalling) ...[
+            const SizedBox(height: 8),
+            Center(
+              child: _InstallingBanner(),
+            ).animate().fadeIn(duration: 300.ms),
+          ],
+          // Manual install button only when can't auto-install
+          if (!prereq.isChecking &&
+              !prereq.allReady &&
+              !prereq.canAutoInstall &&
+              !prereq.isAnyInstalling) ...[
             const SizedBox(height: 4),
             Center(
-              child: _InstallAllButton(
-                isInstalling: prereq.isAnyInstalling,
-                onInstall: _installAll,
-              ),
+              child: _CannotAutoInstallHint(),
             ).animate().fadeIn(duration: 300.ms),
           ],
 
@@ -543,42 +592,132 @@ class _TerminalOutput extends StatelessWidget {
   }
 }
 
-/// A prominent "install all missing dependencies" button.
-class _InstallAllButton extends StatelessWidget {
-  final bool isInstalling;
-  final VoidCallback onInstall;
+/// Countdown banner shown before auto-install.
+class _CountdownBanner extends StatelessWidget {
+  final int countdown;
 
-  const _InstallAllButton({
-    required this.isInstalling,
-    required this.onInstall,
-  });
+  const _CountdownBanner({required this.countdown});
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 44,
-      child: ElevatedButton.icon(
-        onPressed: isInstalling ? null : onInstall,
-        icon: isInstalling
-            ? const SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(
-                    strokeWidth: 2, color: AppColors.success),
-              )
-            : const Icon(Icons.auto_fix_high, size: 18),
-        label: Text(isInstalling ? '安装中...' : '一键安装全部缺失依赖'),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.success.withValues(alpha: 0.12),
-          foregroundColor: AppColors.success,
-          elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: BorderSide(color: AppColors.success.withValues(alpha: 0.3)),
+    return GlassContainer(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: 36,
+            height: 36,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                SizedBox(
+                  width: 36,
+                  height: 36,
+                  child: CircularProgressIndicator(
+                    value: countdown / 3.0,
+                    strokeWidth: 2.5,
+                    backgroundColor: AppColors.surfaceHover,
+                    valueColor: AlwaysStoppedAnimation(AppColors.primary),
+                  ),
+                ),
+                Text(
+                  '$countdown',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ],
+            ),
           ),
-          textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-        ),
+          const SizedBox(width: 16),
+          const Text(
+            '秒后自动安装缺失依赖...',
+            style: TextStyle(
+              fontSize: 14,
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Banner shown while auto-installing.
+class _InstallingBanner extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return GlassContainer(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(
+              strokeWidth: 2.5,
+              color: AppColors.primary,
+            ),
+          ),
+          SizedBox(width: 14),
+          Text(
+            '正在自动安装缺失依赖，请稍候...',
+            style: TextStyle(
+              fontSize: 14,
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Hint when no package manager is available.
+class _CannotAutoInstallHint extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return GlassContainer(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.info_outline, size: 28, color: AppColors.warning),
+          const SizedBox(height: 12),
+          const Text(
+            '未能检测到包管理器',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '请手动安装缺失的依赖后，点击"重新检测"。\n'
+            'macOS 用户请安装 Homebrew: brew.sh',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+              color: AppColors.textMuted,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton.icon(
+            onPressed: () {
+              // recheck
+              final prereq = context.read<PrerequisiteProvider>();
+              prereq.checkAll();
+            },
+            icon: const Icon(Icons.refresh, size: 16),
+            label: const Text('重新检测'),
+          ),
+        ],
       ),
     );
   }
