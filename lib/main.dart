@@ -39,8 +39,8 @@ Future<void> _initWindow() async {
   await windowManager.ensureInitialized();
 
   const options = WindowOptions(
-    size: Size(900, 720),
-    minimumSize: Size(800, 640),
+    size: Size(900, 740),
+    minimumSize: Size(800, 660),
     center: true,
     backgroundColor: Colors.transparent,
     titleBarStyle: TitleBarStyle.hidden,

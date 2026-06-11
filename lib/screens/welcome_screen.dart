@@ -62,9 +62,9 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                       Text(
                         'Claude Code',
                         style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 4,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 5,
                           color: AppColors.textMuted,
                         ),
                       )
