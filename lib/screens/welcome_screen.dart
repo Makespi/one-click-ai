@@ -51,8 +51,8 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                   padding: const EdgeInsets.only(
                     left: 48,
                     right: 48,
-                    top: 32,
-                    bottom: 36,
+                    top: 24,
+                    bottom: 32,
                   ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -98,7 +98,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                           ),
                       const SizedBox(height: 16),
                       Text(
-                        '保姆式安装自动化 AI 工具',
+                        '自动化安装工具',
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w500,
@@ -122,15 +122,15 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                       )
                           .animate()
                           .fadeIn(duration: 400.ms, delay: 450.ms),
-                      const SizedBox(height: 28),
+                      const SizedBox(height: 22),
                       _FeatureRow()
                           .animate()
                           .fadeIn(duration: 400.ms, delay: 550.ms),
-                      const SizedBox(height: 26),
+                      const SizedBox(height: 22),
                       _SystemCard(platformInfo: platformInfo)
                           .animate()
                           .fadeIn(duration: 400.ms, delay: 700.ms),
-                      const SizedBox(height: 28),
+                      const SizedBox(height: 24),
                       _StartButton(
                         onPressed: () {
                           Navigator.of(context).pushReplacement(
@@ -148,7 +148,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                             delay: 1300.ms,
                             curve: Curves.easeOutBack,
                           ),
-                      const SizedBox(height: 28),
+                      const SizedBox(height: 24),
                       Text(
                         'v1.0.0 · macOS · Windows · Linux',
                         style: TextStyle(
