@@ -156,11 +156,9 @@ class CompletionScreen extends StatelessWidget {
                         height: 48,
                         child: ElevatedButton.icon(
                           onPressed: () {
-                            // Go back to the configure page
-                            Navigator.of(context).popUntil((route) => route.isFirst);
-                            Navigator.of(context).pushReplacement(
+                            Navigator.of(context).push(
                               MaterialPageRoute(
-                                builder: (_) => const _DirectConfigureScreen(),
+                                builder: (_) => const DirectConfigureScreen(),
                               ),
                             );
                           },
@@ -182,8 +180,10 @@ class CompletionScreen extends StatelessWidget {
                         width: 260,
                         height: 48,
                         child: OutlinedButton(
-                          onPressed: () =>
-                              Navigator.of(context).popUntil((route) => route.isFirst),
+                          onPressed: () {
+                            final nav = Navigator.of(context);
+                            if (nav.canPop()) nav.pop();
+                          },
                           style: OutlinedButton.styleFrom(
                             foregroundColor: AppColors.textSecondary,
                             side: const BorderSide(color: AppColors.glassBorder),
@@ -285,14 +285,14 @@ class _SummaryRow extends StatelessWidget {
 
 // ─── Direct Configure Screen (for re-config after installation) ──
 
-class _DirectConfigureScreen extends StatefulWidget {
-  const _DirectConfigureScreen();
+class DirectConfigureScreen extends StatefulWidget {
+  const DirectConfigureScreen({super.key});
 
   @override
-  State<_DirectConfigureScreen> createState() => _DirectConfigureScreenState();
+  State<DirectConfigureScreen> createState() => _DirectConfigureScreenState();
 }
 
-class _DirectConfigureScreenState extends State<_DirectConfigureScreen> {
+class _DirectConfigureScreenState extends State<DirectConfigureScreen> {
   @override
   void initState() {
     super.initState();
@@ -327,7 +327,7 @@ class _DirectConfigureScreenState extends State<_DirectConfigureScreen> {
               children: [
                 AnimatedButton(
                   label: '返回',
-                  onPressed: () => Navigator.of(context).popUntil((route) => route.isFirst),
+                  onPressed: () => Navigator.of(context).pop(),
                   isPrimary: false,
                   width: 100,
                 ),
@@ -336,9 +336,30 @@ class _DirectConfigureScreenState extends State<_DirectConfigureScreen> {
                   label: '保存配置',
                   onPressed: config.profile.apiKey?.isNotEmpty == true
                       ? () async {
+                          final messenger = ScaffoldMessenger.of(context);
                           final nav = Navigator.of(context);
                           await config.writeConfig();
-                          nav.popUntil((route) => route.isFirst);
+                          if (!mounted) return;
+                          messenger.showSnackBar(
+                            SnackBar(
+                              content: const Row(
+                                children: [
+                                  Icon(Icons.check_circle, color: AppColors.success, size: 18),
+                                  SizedBox(width: 10),
+                                  Text('配置保存成功',
+                                      style: TextStyle(fontSize: 14, color: Colors.white)),
+                                ],
+                              ),
+                              behavior: SnackBarBehavior.floating,
+                              backgroundColor: AppColors.surfaceCard,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              duration: const Duration(seconds: 1),
+                            ),
+                          );
+                          await Future.delayed(const Duration(milliseconds: 600));
+                          if (mounted) nav.pop();
                         }
                       : null,
                   width: 140,

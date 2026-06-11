@@ -221,6 +221,34 @@ class InstallService {
     return _shell.commandExists('claude');
   }
 
+  /// Uninstall Claude Code via npm.
+  Future<UninstallResult> uninstallClaudeCode({
+    required void Function(String line) onOutput,
+  }) async {
+    onOutput(r'$ npm uninstall -g @anthropic-ai/claude-code');
+    onOutput('');
+
+    try {
+      final result = await _shell.runStreaming(
+        'npm',
+        ['uninstall', '-g', '@anthropic-ai/claude-code'],
+        onStdout: onOutput,
+        onStderr: onOutput,
+      );
+
+      if (!result.isSuccess) {
+        final errorText = result.stderr.isNotEmpty ? result.stderr : result.stdout;
+        return UninstallResult(success: false, error: errorText);
+      }
+
+      onOutput('');
+      onOutput('✓ Claude Code 已卸载');
+      return UninstallResult(success: true);
+    } catch (e) {
+      return UninstallResult(success: false, error: e.toString());
+    }
+  }
+
   /// Verify that `claude` command works after installation.
   Future<bool> verifyInstallation() async {
     return _shell.commandExists('claude');
@@ -243,4 +271,12 @@ class InstallResult {
     this.version,
     this.error,
   });
+}
+
+/// Result of uninstalling Claude Code.
+class UninstallResult {
+  final bool success;
+  final String? error;
+
+  const UninstallResult({required this.success, this.error});
 }

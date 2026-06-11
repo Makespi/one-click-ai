@@ -1,10 +1,9 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 
-/// Animated liquid wave background with multiple overlapping sine wave layers.
 class LiquidBackground extends StatefulWidget {
   final Widget? child;
-
   const LiquidBackground({super.key, this.child});
 
   @override
@@ -12,35 +11,31 @@ class LiquidBackground extends StatefulWidget {
 }
 
 class _LiquidBackgroundState extends State<LiquidBackground>
-    with TickerProviderStateMixin {
-  late final AnimationController _controller;
+    with SingleTickerProviderStateMixin {
+  late final Ticker _ticker;
+  double _time = 0;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 8),
-    )..repeat();
+    _ticker = createTicker((elapsed) {
+      setState(() => _time = elapsed.inMicroseconds / 16000000.0);
+    })..start();
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _ticker.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        return CustomPaint(
-          painter: _WavePainter(_controller.value),
-          child: child,
-        );
-      },
-      child: widget.child,
+    return RepaintBoundary(
+      child: CustomPaint(
+        painter: _WavePainter(_time),
+        child: widget.child,
+      ),
     );
   }
 }
@@ -50,135 +45,58 @@ class _WavePainter extends CustomPainter {
 
   _WavePainter(this.time);
 
-  @override
-  void paint(Canvas canvas, Size size) {
-    final h = size.height;
-    final bottom = h * 0.72;
+  final _path = Path();
+  final _paints = List.generate(5, (_) => Paint()..style = PaintingStyle.fill);
 
-    // ── Layer 1: Deep indigo, slow, large amplitude ──────────
-    _drawWave(
-      canvas: canvas,
-      size: size,
-      color: const Color(0xFF4F46E5),
-      opacity: 0.08,
-      offsetY: bottom,
-      amplitude: 35,
-      frequency: 1.6,
-      speed: 0.7,
-    );
-
-    // ── Layer 2: Violet, medium speed ────────────────────────
-    _drawWave(
-      canvas: canvas,
-      size: size,
-      color: const Color(0xFF7C3AED),
-      opacity: 0.12,
-      offsetY: bottom + 20,
-      amplitude: 45,
-      frequency: 2.1,
-      speed: 1.1,
-    );
-
-    // ── Layer 3: Primary indigo, a bit faster ────────────────
-    _drawWave(
-      canvas: canvas,
-      size: size,
-      color: const Color(0xFF6366F1),
-      opacity: 0.15,
-      offsetY: bottom + 45,
-      amplitude: 55,
-      frequency: 1.3,
-      speed: 1.4,
-    );
-
-    // ── Layer 4: Lighter violet, fast, small ─────────────────
-    _drawWave(
-      canvas: canvas,
-      size: size,
-      color: const Color(0xFF818CF8),
-      opacity: 0.10,
-      offsetY: bottom + 70,
-      amplitude: 30,
-      frequency: 2.8,
-      speed: 1.9,
-    );
-
-    // ── Layer 5: Top subtle pulse ────────────────────────────
-    final pulseY = h * 0.18;
-    _drawWave(
-      canvas: canvas,
-      size: size,
-      color: const Color(0xFF6366F1),
-      opacity: 0.04,
-      offsetY: pulseY,
-      amplitude: 25,
-      frequency: 0.9,
-      speed: 0.4,
-      reversed: true,
-    );
-  }
-
-  void _drawWave({
-    required Canvas canvas,
-    required Size size,
-    required Color color,
-    required double opacity,
-    required double offsetY,
-    required double amplitude,
-    required double frequency,
-    required double speed,
-    bool reversed = false,
-  }) {
-    final path = Path();
+  void _drawWave(
+    Canvas canvas,
+    Size size,
+    int index,
+    Color color,
+    double baseY,
+    double amplitude,
+    double frequency,
+    double speed,
+    bool reversed,
+  ) {
     final w = size.width;
     final h = size.height;
+    _path.reset();
+    _path.moveTo(0, h);
 
-    path.moveTo(0, h);
+    final phaseOffset = time * speed * 2 * math.pi;
 
-    // Draw wave from right to left (or reversed)
-    final steps = 120;
-    for (var i = 0; i <= steps; i++) {
-      final x = w * i / steps;
+    for (var i = 0; i <= 70; i++) {
+      final x = w * i / 70;
       final t = reversed ? (w - x) / w : x / w;
-      final phase = 2 * math.pi * frequency * t + time * speed * 2 * math.pi;
+      final phase = 2 * math.pi * frequency * t + phaseOffset;
 
-      var y = offsetY + amplitude * math.sin(phase);
-
-      // Add second harmonic for more organic look
+      var y = baseY + amplitude * math.sin(phase);
       y += amplitude * 0.35 * math.sin(phase * 2.3 + 1.5);
-
-      // Add third harmonic
       y += amplitude * 0.15 * math.sin(phase * 3.7 + 0.8);
 
-      path.lineTo(x, y);
+      _path.lineTo(x, y);
     }
 
-    // Complete the shape: go to bottom-right, then bottom-left
-    path.lineTo(w, h);
-    path.lineTo(0, h);
-    path.close();
+    _path.lineTo(w, h);
+    _path.close();
 
-    // Gradient fill — fade toward bottom
-    final gradient = LinearGradient(
-      begin: Alignment.topCenter,
-      end: Alignment.bottomCenter,
-      colors: [
-        color.withValues(alpha: opacity),
-        color.withValues(alpha: opacity * 0.4),
-        color.withValues(alpha: 0),
-      ],
-      stops: const [0.0, 0.7, 1.0],
-    );
-
-    final paint = Paint()
-      ..shader = gradient.createShader(Rect.fromLTWH(0, offsetY - amplitude * 1.5, w, h - offsetY + amplitude * 1.5))
-      ..style = PaintingStyle.fill;
-
-    canvas.drawPath(path, paint);
+    _paints[index].color = color;
+    canvas.drawPath(_path, _paints[index]);
   }
 
   @override
-  bool shouldRepaint(covariant _WavePainter oldDelegate) {
-    return oldDelegate.time != time;
+  void paint(Canvas canvas, Size size) {
+    final bottom = size.height * 0.45;
+
+    _drawWave(canvas, size, 0, const Color(0x154F46E5), bottom,      50, 1.6, 0.7, false);
+    _drawWave(canvas, size, 1, const Color(0x1E7C3AED), bottom + 25, 60, 2.1, 1.1, false);
+    _drawWave(canvas, size, 2, const Color(0x246366F1), bottom + 55, 70, 1.3, 1.4, false);
+    _drawWave(canvas, size, 3, const Color(0x18818CF8), bottom + 85, 40, 2.8, 1.9, false);
+    _drawWave(canvas, size, 4, const Color(0x0A6366F1), size.height * 0.12, 35, 0.9, 0.4, true);
   }
+
+  @override
+  bool shouldRepaint(covariant _WavePainter oldDelegate) =>
+      oldDelegate.time != time;
 }

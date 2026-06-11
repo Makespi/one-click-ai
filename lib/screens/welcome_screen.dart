@@ -9,6 +9,7 @@ import '../services/install_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/custom_title_bar.dart';
 import '../widgets/liquid_background.dart';
+import 'completion_screen.dart';
 import 'wizard_screen.dart';
 
 class WelcomeScreen extends StatefulWidget {
@@ -21,7 +22,9 @@ class WelcomeScreen extends StatefulWidget {
 class _WelcomeScreenState extends State<WelcomeScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _glowController;
-  bool? _claudeInstalled; // null = checking, true/false = result
+  bool? _claudeInstalled;
+  bool _showUninstall = false;
+  final List<String> _uninstallOutput = [];
 
   @override
   void initState() {
@@ -36,6 +39,32 @@ class _WelcomeScreenState extends State<WelcomeScreen>
   Future<void> _checkClaudeCode() async {
     final installed = await InstallService().isClaudeCodeInstalled();
     if (mounted) setState(() => _claudeInstalled = installed);
+  }
+
+  Future<void> _doUninstall() async {
+    setState(() {
+      _showUninstall = true;
+      _uninstallOutput.add('正在卸载...');
+    });
+    final result = await InstallService().uninstallClaudeCode(
+      onOutput: (line) {
+        if (mounted) setState(() => _uninstallOutput.add(line));
+      },
+    );
+    if (mounted) {
+      if (result.success) {
+        setState(() {
+          _claudeInstalled = false;
+          _uninstallOutput.add('');
+          _uninstallOutput.add('✓ 卸载成功');
+        });
+      } else {
+        setState(() {
+          _uninstallOutput.add('');
+          _uninstallOutput.add('✗ 卸载失败: ${result.error}');
+        });
+      }
+    }
   }
 
   @override
@@ -117,31 +146,33 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                       )
                           .animate()
                           .fadeIn(duration: 400.ms, delay: 350.ms),
-                      const SizedBox(height: 12),
-                      Text(
-                        '一键安装 Claude Code，自动配置开发环境。\n跨平台支持，从零到可用只需一次点击。',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w400,
-                          color: AppColors.textMuted,
-                          height: 1.5,
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        width: 520,
+                        child: Text(
+                          '一键安装 Claude Code，自动配置开发环境。跨平台支持，从零到可用只需一次点击。',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w400,
+                            color: AppColors.textMuted,
+                            height: 1.6,
+                          ),
                         ),
                       )
                           .animate()
                           .fadeIn(duration: 400.ms, delay: 450.ms),
-                      const SizedBox(height: 22),
+                      const SizedBox(height: 26),
                       _FeatureRow()
                           .animate()
                           .fadeIn(duration: 400.ms, delay: 550.ms),
-                      const SizedBox(height: 22),
+                      const SizedBox(height: 20),
                       _SystemCard(platformInfo: platformInfo)
                           .animate()
                           .fadeIn(duration: 400.ms, delay: 700.ms),
 
-                      // Claude Code installed badge
                       if (_claudeInstalled == true) ...[
-                        const SizedBox(height: 14),
+                        const SizedBox(height: 12),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
@@ -161,24 +192,120 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                       ],
 
                       const SizedBox(height: 24),
-                      _StartButton(
-                        label: _claudeInstalled == true ? '开始配置' : '开始安装',
-                        onPressed: () {
-                          Navigator.of(context).pushReplacement(
-                            MaterialPageRoute(
-                              builder: (_) => const WizardScreen(),
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final startButtonHalf = 125.0; // half of 250px button
+                          final centerX = constraints.maxWidth / 2;
+                          return SizedBox(
+                            width: double.infinity,
+                            height: 56,
+                            child: Stack(
+                              children: [
+                                Center(
+                                  child: _StartButton(
+                                    label: _claudeInstalled == true ? '开始配置' : '开始安装',
+                                    onPressed: () {
+                                      final isInstalled = _claudeInstalled == true;
+                                      if (isInstalled) {
+                                        Navigator.of(context).push(
+                                          MaterialPageRoute(
+                                            builder: (_) => const DirectConfigureScreen(),
+                                          ),
+                                        );
+                                      } else {
+                                        Navigator.of(context).pushReplacement(
+                                          MaterialPageRoute(
+                                            builder: (_) => const WizardScreen(),
+                                          ),
+                                        );
+                                      }
+                                    },
+                                  )
+                                      .animate()
+                                      .fadeIn(duration: 600.ms, delay: 1300.ms)
+                                      .scale(
+                                        begin: const Offset(0.95, 0.95),
+                                        duration: 600.ms,
+                                        delay: 1300.ms,
+                                        curve: Curves.easeOutBack,
+                                      ),
+                                ),
+                                if (_claudeInstalled == true)
+                                  Positioned(
+                                    left: centerX + startButtonHalf + 12,
+                                    top: 0,
+                                    child: _UninstallButton(onTap: () {
+                                      if (_showUninstall) {
+                                        setState(() {
+                                          _showUninstall = false;
+                                          _uninstallOutput.clear();
+                                        });
+                                        return;
+                                      }
+                                      showDialog(
+                                        context: context,
+                                        builder: (ctx) => AlertDialog(
+                                          backgroundColor: AppColors.surfaceCard,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(16),
+                                          ),
+                                          title: const Text('确认卸载',
+                                              style: TextStyle(color: AppColors.textPrimary)),
+                                          content: const Text(
+                                            '确定要卸载 Claude Code 吗？\n卸载后需要重新安装才能使用。',
+                                            style: TextStyle(color: AppColors.textSecondary),
+                                          ),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () => Navigator.of(ctx).pop(),
+                                              child: const Text('取消',
+                                                  style: TextStyle(color: AppColors.textMuted)),
+                                            ),
+                                            TextButton(
+                                              onPressed: () {
+                                                Navigator.of(ctx).pop();
+                                                _doUninstall();
+                                              },
+                                              child: const Text('确认卸载',
+                                                  style: TextStyle(color: AppColors.error)),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    }),
+                                  ),
+                              ],
                             ),
                           );
                         },
-                      )
-                          .animate()
-                          .fadeIn(duration: 600.ms, delay: 1300.ms)
-                          .scale(
-                            begin: const Offset(0.95, 0.95),
-                            duration: 600.ms,
-                            delay: 1300.ms,
-                            curve: Curves.easeOutBack,
+                      ),
+
+                      // Uninstall output panel
+                      if (_showUninstall && _uninstallOutput.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        Container(
+                          width: 440,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(10),
+                            color: AppColors.background,
+                            border: Border.all(color: AppColors.glassBorder),
                           ),
+                          constraints: const BoxConstraints(maxHeight: 100),
+                          child: SingleChildScrollView(
+                            child: Text(
+                              _uninstallOutput.join('\n'),
+                              style: const TextStyle(
+                                fontFamily: 'monospace',
+                                fontSize: 11,
+                                color: AppColors.success,
+                                height: 1.4,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+
                       const SizedBox(height: 24),
                       Text(
                         'v1.0.0 · macOS · Windows · Linux',
@@ -333,7 +460,7 @@ class _SystemCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 16),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(14),
         color: AppColors.surfaceCard.withValues(alpha: 0.3),
@@ -345,30 +472,48 @@ class _SystemCard extends StatelessWidget {
         children: [
           _osIcon(platformInfo.os),
           const SizedBox(width: 14),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                '已检测到您的系统',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.textMuted,
-                  letterSpacing: 0.1,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '已检测到您的系统',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.textMuted,
+                    letterSpacing: 0.1,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                platformInfo.displayName,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
+                const SizedBox(height: 2),
+                Text(
+                  '${platformInfo.displayName} · ${platformInfo.architecture}',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
+          if (platformInfo.hasPackageManager)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                color: AppColors.primary.withValues(alpha: 0.1),
+              ),
+              child: Text(
+                platformInfo.packageManager!.displayName,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primaryLight,
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -466,6 +611,46 @@ class _StartButtonState extends State<_StartButton> {
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Uninstall button — shown next to the main CTA when Claude Code is installed.
+class _UninstallButton extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _UninstallButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 56,
+        padding: const EdgeInsets.symmetric(horizontal: 18),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(14),
+          color: AppColors.error.withValues(alpha: 0.06),
+          border: Border.all(
+            color: AppColors.error.withValues(alpha: 0.12),
+          ),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.delete_outline_rounded, size: 18, color: AppColors.error),
+            SizedBox(width: 6),
+            Text(
+              '一键卸载',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: AppColors.error,
+              ),
+            ),
+          ],
         ),
       ),
     );
