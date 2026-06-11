@@ -49,16 +49,16 @@ class _WelcomeScreenState extends State<WelcomeScreen>
               child: Center(
                 child: Padding(
                   padding: const EdgeInsets.only(
-                    left: 40,
-                    right: 40,
-                    top: 20,
-                    bottom: 20,
+                    left: 48,
+                    right: 48,
+                    top: 28,
+                    bottom: 24,
                   ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       _HeroIcon(glowController: _glowController),
-                      const SizedBox(height: 28),
+                      const SizedBox(height: 32),
                       ShaderMask(
                         shaderCallback: (bounds) => const LinearGradient(
                           colors: [AppColors.primaryLight, AppColors.accentLight],
@@ -84,7 +84,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                             delay: 200.ms,
                             curve: Curves.easeOutBack,
                           ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 16),
                       Text(
                         '傻瓜式安装自动化 AI 工具',
                         style: TextStyle(
@@ -97,7 +97,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                       )
                           .animate()
                           .fadeIn(duration: 400.ms, delay: 350.ms),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 12),
                       Text(
                         '一键安装 Claude Code，自动配置开发环境。\n跨平台支持，从零到可用只需一次点击。',
                         textAlign: TextAlign.center,
@@ -110,15 +110,15 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                       )
                           .animate()
                           .fadeIn(duration: 400.ms, delay: 450.ms),
-                      const SizedBox(height: 22),
+                      const SizedBox(height: 28),
                       _FeatureRow()
                           .animate()
                           .fadeIn(duration: 400.ms, delay: 550.ms),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 26),
                       _SystemCard(platformInfo: platformInfo)
                           .animate()
                           .fadeIn(duration: 400.ms, delay: 700.ms),
-                      const SizedBox(height: 22),
+                      const SizedBox(height: 28),
                       _StartButton(
                         onPressed: () {
                           Navigator.of(context).pushReplacement(
@@ -136,7 +136,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                             delay: 1300.ms,
                             curve: Curves.easeOutBack,
                           ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 20),
                       Text(
                         'v1.0.0 · macOS · Windows · Linux',
                         style: TextStyle(
