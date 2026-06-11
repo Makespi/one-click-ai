@@ -1,3 +1,5 @@
+import 'dart:io' show File, FileMode, Platform;
+
 import '../models/install_progress.dart';
 import 'shell_service.dart';
 
@@ -29,16 +31,21 @@ class InstallService {
       outputLines: ['npm $npmVersion', ''],
     ));
 
-    // Step 2: Install Claude Code
+    // Step 2: On macOS/Linux, configure npm prefix to avoid EACCES
+    if (!Platform.isWindows) {
+      await _ensureNpmPrefix(onProgress);
+    }
+
+    // Step 3: Install Claude Code
     onProgress(InstallProgress(
       stage: InstallStage.installing,
-      percent: 0.15,
+      percent: 0.20,
       message: '正在安装 @anthropic-ai/claude-code...',
       outputLines: [r'$ npm install -g @anthropic-ai/claude-code', ''],
     ));
 
     final outputLines = <String>[];
-    double currentPercent = 0.15;
+    double currentPercent = 0.20;
 
     try {
       final result = await _shell.runStreaming(
@@ -81,11 +88,11 @@ class InstallService {
 
         if (errorText.contains('EACCES') || errorText.contains('permission')) {
           throw Exception(
-            '权限不足。请尝试以下解决方案：\n'
-            '1. macOS/Linux: 配置 npm prefix\n'
-            '   npm config set prefix \'~/.npm-global\'\n'
-            '2. Windows: 以管理员身份运行终端\n'
-            '或重新运行安装程序。',
+            '权限不足。已尝试自动配置 npm prefix，但仍失败。\n'
+            '请手动运行以下命令后重试：\n'
+            'mkdir -p ~/.npm-global\n'
+            'npm config set prefix ~/.npm-global\n'
+            'export PATH=~/.npm-global/bin:\$PATH',
           );
         }
 
@@ -140,6 +147,73 @@ class InstallService {
 
       return InstallResult(success: true, version: 'unknown');
     }
+  }
+
+  /// Configure npm to use a user-writable prefix to avoid EACCES errors.
+  Future<void> _ensureNpmPrefix(
+    void Function(InstallProgress progress) onProgress,
+  ) async {
+    // Check current prefix
+    final prefixResult = await _shell.run('npm', ['config', 'get', 'prefix']);
+    final currentPrefix = prefixResult.stdout.trim();
+
+    // On macOS/Linux, check if global installs need sudo
+    final needsSudo = currentPrefix.startsWith('/usr/') ||
+        currentPrefix.startsWith('/opt/');
+
+    if (needsSudo) {
+      final home = Platform.environment['HOME'] ?? '/home';
+      final userPrefix = '$home/.npm-global';
+
+      onProgress(InstallProgress(
+        stage: InstallStage.checkingRegistry,
+        percent: 0.12,
+        message: '配置 npm 到用户目录 (避免权限问题)...',
+        outputLines: [r'$ npm config set prefix ~/.npm-global'],
+      ));
+
+      await _shell.run('npm', ['config', 'set', 'prefix', userPrefix]);
+
+      // Ensure the bin directory is on PATH via .zshrc or .bash_profile
+      final binPath = '$userPrefix/bin';
+      await _updateShellRc(binPath);
+
+      onProgress(InstallProgress(
+        stage: InstallStage.checkingRegistry,
+        percent: 0.15,
+        message: 'npm prefix 已配置到 $userPrefix',
+        outputLines: ['npm prefix → $userPrefix', ''],
+      ));
+    }
+  }
+
+  /// Append the npm global bin path to shell RC files.
+  Future<void> _updateShellRc(String binPath) async {
+    final home = Platform.environment['HOME'] ?? '/home';
+    final pathLine = 'export PATH="$binPath:\$PATH"';
+
+    for (final rcFile in ['$home/.zshrc', '$home/.bash_profile', '$home/.bashrc', '$home/.profile']) {
+      try {
+        final file = File(rcFile);
+        if (await file.exists()) {
+          final content = await file.readAsString();
+          if (!content.contains(binPath)) {
+            await file.writeAsString('$content\n# Added by One Click AI\n$pathLine\n',
+                mode: FileMode.append);
+          }
+          return; // Updated the first existing rc file
+        }
+      } catch (_) {}
+    }
+
+    // If no rc file exists, create .zshrc
+    try {
+      final zshrc = File('$home/.zshrc');
+      await zshrc.writeAsString(
+        '# Added by One Click AI\n$pathLine\n',
+        mode: FileMode.append,
+      );
+    } catch (_) {}
   }
 
   /// Check if Claude Code is already installed.
