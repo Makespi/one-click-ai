@@ -81,6 +81,44 @@ class _StepConfigureState extends State<StepConfigure> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Claude Code already installed banner
+          if (wizard.claudeAlreadyInstalled)
+            GlassContainer(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AppColors.primary.withValues(alpha: 0.12),
+                    ),
+                    child: const Icon(Icons.check_circle,
+                        size: 18, color: AppColors.primary),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text('Claude Code 已安装',
+                            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                                  color: AppColors.primaryLight,
+                                )),
+                        const SizedBox(height: 2),
+                        Text('已跳过安装步骤，可直接配置或更新 API 设置',
+                            style: Theme.of(context).textTheme.bodyMedium),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ).animate().fadeIn(duration: 300.ms),
+
+          if (wizard.claudeAlreadyInstalled) const SizedBox(height: 16),
+
           // Existing config banner
           if (config.hasExistingConfig)
             GlassContainer(

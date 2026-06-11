@@ -19,10 +19,12 @@ class WizardProvider extends ChangeNotifier {
   bool _autoAdvanceEnabled = true;
   Timer? _autoAdvanceTimer;
   bool _shouldSkipConfigure = false;
+  bool _claudeAlreadyInstalled = false;
 
   WizardStep get currentStep => _currentStep;
   bool get canProceed => _canProceed;
   bool get autoAdvanceEnabled => _autoAdvanceEnabled;
+  bool get claudeAlreadyInstalled => _claudeAlreadyInstalled;
   bool get shouldSkipConfigure => _shouldSkipConfigure;
 
   int get currentStepIndex {
@@ -84,6 +86,12 @@ class WizardProvider extends ChangeNotifier {
   /// Mark that the configure step should be skipped (already configured).
   void setSkipConfigure(bool value) {
     _shouldSkipConfigure = value;
+    notifyListeners();
+  }
+
+  /// Set that Claude Code is already installed.
+  void setClaudeAlreadyInstalled(bool value) {
+    _claudeAlreadyInstalled = value;
     notifyListeners();
   }
 

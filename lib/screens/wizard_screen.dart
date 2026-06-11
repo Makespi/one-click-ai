@@ -5,6 +5,7 @@ import '../providers/wizard_provider.dart';
 import '../providers/prerequisite_provider.dart';
 import '../providers/install_provider.dart';
 import '../providers/config_provider.dart';
+import '../services/install_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/animated_button.dart';
 import '../widgets/custom_title_bar.dart';
@@ -24,25 +25,44 @@ class WizardScreen extends StatefulWidget {
 class _WizardScreenState extends State<WizardScreen> {
   final _pageController = PageController();
   bool _listening = false;
+  bool _claudeInstalled = false;
 
   @override
   void initState() {
     super.initState();
-    // Load existing config in the background
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadExistingConfig();
     });
   }
 
-  void _loadExistingConfig() {
+  bool _preCheckDone = false;
+
+  Future<void> _loadExistingConfig() async {
+    if (_preCheckDone) return;
+    _preCheckDone = true;
+
     final config = context.read<ConfigProvider>();
     final wizard = context.read<WizardProvider>();
-    config.loadExistingConfig().then((_) {
-      if (!mounted) return;
+
+    await config.loadExistingConfig();
+    if (!mounted) return;
+
+    final installService = InstallService();
+    final claudeInstalled = await installService.isClaudeCodeInstalled();
+
+    if (!mounted) return;
+
+    if (claudeInstalled) {
+      _claudeInstalled = true;
+      wizard.setClaudeAlreadyInstalled(true);
+      wizard.goToStep(WizardStep.configure);
       if (config.isAlreadyConfigured) {
         wizard.setSkipConfigure(true);
       }
-    });
+      _goToPage(wizard.currentStepIndex);
+    } else if (config.isAlreadyConfigured) {
+      wizard.setSkipConfigure(true);
+    }
   }
 
   @override
@@ -136,6 +156,7 @@ class _WizardScreenState extends State<WizardScreen> {
           _BottomNavBar(
             onPageChange: _goToPage,
             onComplete: _goToCompletion,
+            hideBackOnConfigure: _claudeInstalled,
           ),
         ],
       ),
@@ -146,10 +167,12 @@ class _WizardScreenState extends State<WizardScreen> {
 class _BottomNavBar extends StatelessWidget {
   final void Function(int index) onPageChange;
   final Future<void> Function() onComplete;
+  final bool hideBackOnConfigure;
 
   const _BottomNavBar({
     required this.onPageChange,
     required this.onComplete,
+    this.hideBackOnConfigure = false,
   });
 
   @override
@@ -179,7 +202,7 @@ class _BottomNavBar extends StatelessWidget {
           case WizardStep.configure:
             canProceed = config.isAlreadyConfigured ||
                 config.profile.apiKey?.isNotEmpty == true;
-            buttonLabel = '完成配置';
+            buttonLabel = hideBackOnConfigure ? '保存配置' : '完成配置';
             break;
           case WizardStep.complete:
             break;
@@ -195,7 +218,10 @@ class _BottomNavBar extends StatelessWidget {
           ),
           child: Row(
             children: [
-              if (!isFirst)
+              // Hide back button when jumped directly to configure (Claude already installed)
+              if (!isFirst &&
+                  !(hideBackOnConfigure &&
+                      wizard.currentStep == WizardStep.configure))
                 AnimatedButton(
                   label: '上一步',
                   onPressed: () {
