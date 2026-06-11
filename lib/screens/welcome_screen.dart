@@ -138,9 +138,31 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                       _SystemCard(platformInfo: platformInfo)
                           .animate()
                           .fadeIn(duration: 400.ms, delay: 700.ms),
+
+                      // Claude Code installed badge
+                      if (_claudeInstalled == true) ...[
+                        const SizedBox(height: 14),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.check_circle,
+                                size: 14, color: AppColors.success),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Claude Code 安装成功',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: AppColors.success.withValues(alpha: 0.9),
+                              ),
+                            ),
+                          ],
+                        ).animate().fadeIn(duration: 400.ms),
+                      ],
+
                       const SizedBox(height: 24),
                       _StartButton(
-                        label: _claudeInstalled == true ? '去配置' : '开始安装',
+                        label: _claudeInstalled == true ? '开始配置' : '开始安装',
                         onPressed: () {
                           Navigator.of(context).pushReplacement(
                             MaterialPageRoute(
