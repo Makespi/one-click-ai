@@ -58,7 +58,19 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       _HeroIcon(glowController: _glowController),
-                      const SizedBox(height: 32),
+                      const SizedBox(height: 24),
+                      Text(
+                        'Claude Code',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 4,
+                          color: AppColors.textMuted,
+                        ),
+                      )
+                          .animate()
+                          .fadeIn(duration: 400.ms, delay: 100.ms),
+                      const SizedBox(height: 8),
                       ShaderMask(
                         shaderCallback: (bounds) => const LinearGradient(
                           colors: [AppColors.primaryLight, AppColors.accentLight],
@@ -86,7 +98,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                           ),
                       const SizedBox(height: 16),
                       Text(
-                        '傻瓜式安装自动化 AI 工具',
+                        '保姆式安装自动化 AI 工具',
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w500,
