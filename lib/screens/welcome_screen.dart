@@ -59,18 +59,31 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                     children: [
                       _HeroIcon(glowController: _glowController),
                       const SizedBox(height: 28),
-                      Text(
-                        'One Click AI',
-                        style: TextStyle(
-                          fontSize: 32,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: -0.6,
-                          color: AppColors.textPrimary,
-                          height: 1.1,
+                      ShaderMask(
+                        shaderCallback: (bounds) => const LinearGradient(
+                          colors: [AppColors.primaryLight, AppColors.accentLight],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ).createShader(bounds),
+                        child: Text(
+                          'One Click AI',
+                          style: TextStyle(
+                            fontSize: 44,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -1.0,
+                            color: Colors.white,
+                            height: 1.1,
+                          ),
                         ),
                       )
                           .animate()
-                          .fadeIn(duration: 400.ms, delay: 200.ms),
+                          .fadeIn(duration: 500.ms, delay: 200.ms)
+                          .scale(
+                            begin: const Offset(0.92, 0.92),
+                            duration: 500.ms,
+                            delay: 200.ms,
+                            curve: Curves.easeOutBack,
+                          ),
                       const SizedBox(height: 12),
                       Text(
                         '傻瓜式安装自动化 AI 工具',
