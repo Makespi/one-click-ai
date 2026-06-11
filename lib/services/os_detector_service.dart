@@ -82,24 +82,36 @@ class OsDetectorService {
     }
   }
 
-  /// Check if a command exists on the system PATH.
+  /// Check if a command exists on the system PATH or known install locations.
   static bool _commandExists(String command) {
     try {
       if (Platform.isWindows) {
-        // Try `where` first
-        var result = Process.runSync('where', [command],
-            runInShell: true);
+        var result = Process.runSync('where', [command], runInShell: true);
         if (result.exitCode == 0 &&
             result.stdout.toString().trim().isNotEmpty) {
           return true;
         }
-        // Fallback: try running `command --version` via cmd
         result = Process.runSync('cmd', ['/c', command, '--version'],
             runInShell: true);
         return result.exitCode == 0;
       }
-      final result = Process.runSync('which', [command]);
-      return result.exitCode == 0 && result.stdout.toString().trim().isNotEmpty;
+      // macOS/Linux: try `which` first
+      var result = Process.runSync('which', [command]);
+      if (result.exitCode == 0 && result.stdout.toString().trim().isNotEmpty) {
+        return true;
+      }
+      // On macOS, GUI apps have restricted PATH — check known install dirs
+      if (Platform.isMacOS) {
+        const knownPaths = [
+          '/opt/homebrew/bin',   // Homebrew Apple Silicon
+          '/usr/local/bin',       // Homebrew Intel
+          '/opt/local/bin',       // MacPorts
+        ];
+        for (final dir in knownPaths) {
+          if (File('$dir/$command').existsSync()) return true;
+        }
+      }
+      return false;
     } catch (_) {
       return false;
     }
