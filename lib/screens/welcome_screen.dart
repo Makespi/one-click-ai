@@ -66,9 +66,9 @@ class _WelcomeScreenState extends State<WelcomeScreen>
               Expanded(
                 child: Center(
                   child: Padding(
-                    padding: EdgeInsets.only(
-                      left: 64,
-                      right: 64,
+                    padding: const EdgeInsets.only(
+                      left: 40,
+                      right: 40,
                       top: 20,
                       bottom: 20,
                     ),
@@ -267,13 +267,11 @@ class _HeroIcon extends StatelessWidget {
 class _FeatureRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: const [
+    return const Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: [
         _FeatureChip(icon: Icons.download_done_rounded, label: '一键安装'),
-        SizedBox(width: 12),
         _FeatureChip(icon: Icons.settings_suggest_rounded, label: '自动配置'),
-        SizedBox(width: 12),
         _FeatureChip(icon: Icons.desktop_windows_rounded, label: '跨平台'),
       ],
     );
@@ -322,6 +320,7 @@ class _SystemCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(14),
@@ -329,11 +328,8 @@ class _SystemCard extends StatelessWidget {
         border: Border.all(
           color: AppColors.glassBorder.withValues(alpha: 0.5),
         ),
-        // Subtle backdrop blur — Flutter can't natively blur, so use a
-        // slightly translucent fill to simulate the effect.
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         children: [
           _osIcon(platformInfo.os),
           const SizedBox(width: 14),
