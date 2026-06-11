@@ -28,7 +28,7 @@ class PackageManager {
       case 'pacman':
         return 'sudo pacman -S --noconfirm $pkgList';
       case 'winget':
-        return 'winget install --accept-package-agreements ${packages.map((p) => _wingetId(p)).join(' ')}';
+        return 'winget install --accept-source-agreements --accept-package-agreements ${packages.map((p) => _wingetId(p)).join(' ')}';
       case 'choco':
         return 'choco install -y $pkgList';
       default:

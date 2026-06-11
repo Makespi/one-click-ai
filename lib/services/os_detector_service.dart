@@ -85,8 +85,20 @@ class OsDetectorService {
   /// Check if a command exists on the system PATH.
   static bool _commandExists(String command) {
     try {
-      final checkCmd = Platform.isWindows ? 'where' : 'which';
-      final result = Process.runSync(checkCmd, [command]);
+      if (Platform.isWindows) {
+        // Try `where` first
+        var result = Process.runSync('where', [command],
+            runInShell: true);
+        if (result.exitCode == 0 &&
+            result.stdout.toString().trim().isNotEmpty) {
+          return true;
+        }
+        // Fallback: try running `command --version` via cmd
+        result = Process.runSync('cmd', ['/c', command, '--version'],
+            runInShell: true);
+        return result.exitCode == 0;
+      }
+      final result = Process.runSync('which', [command]);
       return result.exitCode == 0 && result.stdout.toString().trim().isNotEmpty;
     } catch (_) {
       return false;
