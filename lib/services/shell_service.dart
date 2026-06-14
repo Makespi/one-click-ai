@@ -60,17 +60,49 @@ class ShellService {
     return null;
   }
 
-  /// Build environment with extended PATH for macOS/Linux.
+  /// Build environment with extended PATH for all platforms.
   Map<String, String> get _extendedEnv {
-    if (_isWindows) return Platform.environment;
     final env = Map<String, String>.from(Platform.environment);
     final currentPath = env['PATH'] ?? '';
-    final extra = ['/opt/homebrew/bin', '/usr/local/bin', '/opt/local/bin']
-        .where((d) => Directory(d).existsSync())
-        .join(':');
-    if (extra.isNotEmpty) {
-      env['PATH'] = '$extra:$currentPath';
+    final extra = <String>[];
+
+    if (_isWindows) {
+      // Common install paths on Windows (may not be on current PATH yet)
+      for (final dir in [
+        r'C:\Program Files\nodejs',
+        r'C:\Program Files (x86)\nodejs',
+        r'C:\Program Files\Git\bin',
+        r'C:\Program Files\Git\cmd',
+        r'C:\Program Files (x86)\Git\bin',
+        r'C:\Program Files (x86)\Git\cmd',
+      ]) {
+        if (Directory(dir).existsSync()) {
+          extra.add(dir);
+        }
+      }
+      // Also check npm global bin
+      final appData = Platform.environment['APPDATA'] ?? '';
+      if (appData.isNotEmpty) {
+        final npmBin = '$appData\\npm';
+        if (Directory(npmBin).existsSync()) {
+          extra.add(npmBin);
+        }
+      }
+      if (extra.isNotEmpty) {
+        env['PATH'] = '${extra.join(';')};$currentPath';
+      }
+    } else {
+      // macOS/Linux: Homebrew paths
+      for (final dir in ['/opt/homebrew/bin', '/usr/local/bin', '/opt/local/bin']) {
+        if (Directory(dir).existsSync()) {
+          extra.add(dir);
+        }
+      }
+      if (extra.isNotEmpty) {
+        env['PATH'] = '${extra.join(':')}:$currentPath';
+      }
     }
+
     return env;
   }
 
