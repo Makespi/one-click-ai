@@ -324,6 +324,27 @@ class _StepConfigureState extends State<StepConfigure> {
             ),
           ],
 
+          // Hint: Claude Code will launch automatically
+          GlassContainer(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              children: [
+                const Icon(Icons.terminal_rounded,
+                    size: 16, color: AppColors.primaryLight),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Text(
+                    '配置完成后将自动打开 Claude Code',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
           const SizedBox(height: 24),
         ],
       ),

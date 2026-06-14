@@ -1,3 +1,5 @@
+import 'dart:io' show exit;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
@@ -5,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../providers/install_provider.dart';
 import '../providers/config_provider.dart';
 import '../providers/wizard_provider.dart';
+import '../services/install_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/animated_button.dart';
 import '../widgets/custom_title_bar.dart';
@@ -150,20 +153,18 @@ class CompletionScreen extends StatelessWidget {
                     ],
 
                     if (isSuccess) ...[
-                      // Re-configure button
+                      // Open Claude Code button
                       SizedBox(
-                        width: 260,
-                        height: 48,
+                        width: 280,
+                        height: 52,
                         child: ElevatedButton.icon(
                           onPressed: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => const DirectConfigureScreen(),
-                              ),
-                            );
+                            launchClaudeInTerminal();
+                            exit(0);
                           },
-                          icon: const Icon(Icons.settings, size: 18),
-                          label: const Text('重新配置 API'),
+                          icon: const Icon(Icons.terminal_rounded, size: 20),
+                          label: const Text('打开 Claude Code 并退出',
+                              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.primary,
                             shape: RoundedRectangleBorder(
@@ -173,17 +174,22 @@ class CompletionScreen extends StatelessWidget {
                         ),
                       ),
 
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 10),
 
-                      // Close button
+                      // Re-configure button
                       SizedBox(
                         width: 260,
-                        height: 48,
-                        child: OutlinedButton(
+                        height: 44,
+                        child: OutlinedButton.icon(
                           onPressed: () {
-                            final nav = Navigator.of(context);
-                            if (nav.canPop()) nav.pop();
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const DirectConfigureScreen(),
+                              ),
+                            );
                           },
+                          icon: const Icon(Icons.settings, size: 16),
+                          label: const Text('重新配置 API'),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: AppColors.textSecondary,
                             side: const BorderSide(color: AppColors.glassBorder),
@@ -191,7 +197,23 @@ class CompletionScreen extends StatelessWidget {
                               borderRadius: BorderRadius.circular(14),
                             ),
                           ),
-                          child: const Text('完成'),
+                        ),
+                      ),
+
+                      const SizedBox(height: 8),
+
+                      // Close button
+                      SizedBox(
+                        width: 260,
+                        height: 40,
+                        child: TextButton(
+                          onPressed: () {
+                            final nav = Navigator.of(context);
+                            if (nav.canPop()) nav.pop();
+                          },
+                          child: Text('关闭',
+                              style: TextStyle(
+                                  color: AppColors.textMuted.withValues(alpha: 0.7))),
                         ),
                       ),
                     ],

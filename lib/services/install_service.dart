@@ -1,4 +1,4 @@
-import 'dart:io' show File, FileMode, Platform;
+import 'dart:io' show File, FileMode, Platform, Process;
 
 import '../models/install_progress.dart';
 import 'shell_service.dart';
@@ -279,4 +279,28 @@ class UninstallResult {
   final String? error;
 
   const UninstallResult({required this.success, this.error});
+}
+
+/// Open a terminal and launch Claude Code.
+Future<void> launchClaudeInTerminal() async {
+  final shell = ShellService();
+  if (Platform.isMacOS) {
+    await shell.run('osascript', [
+      '-e',
+      'tell application "Terminal" to activate',
+      '-e',
+      'tell application "Terminal" to do script "claude"',
+    ]);
+  } else if (Platform.isWindows) {
+    await Process.start('cmd', ['/k', 'claude'], runInShell: true);
+  } else {
+    // Linux: try common terminals
+    for (final term in ['gnome-terminal', 'konsole', 'xterm']) {
+      final exists = await shell.commandExists(term);
+      if (exists) {
+        await Process.start(term, ['-e', 'bash -c "claude; exec bash"']);
+        break;
+      }
+    }
+  }
 }
