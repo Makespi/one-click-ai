@@ -190,7 +190,7 @@ class PrerequisiteProvider extends ChangeNotifier {
     // If still not found, retry once more after a short delay
     // (package managers sometimes return before PATH is updated)
     if (!_results[index].isReady) {
-      await Future.delayed(const Duration(seconds: 2));
+      await Future.delayed(const Duration(seconds: 1));
       switch (name) {
         case 'Node.js':
           await _checkPrerequisite(index, () => _service.checkNodeJs());
