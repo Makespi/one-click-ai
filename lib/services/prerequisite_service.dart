@@ -33,10 +33,7 @@ class PrerequisiteService {
 
     // On Windows, check common install paths (node may not be on PATH yet)
     if (!exists && Platform.isWindows) {
-      for (final path in [
-        r'C:\Program Files\nodejs\node.exe',
-        r'C:\Program Files (x86)\nodejs\node.exe',
-      ]) {
+      for (final path in _windowsNodePaths()) {
         if (File(path).existsSync()) {
           exists = true;
           break;
@@ -55,10 +52,7 @@ class PrerequisiteService {
 
     // Get version via common paths on Windows if not on PATH
     final version = Platform.isWindows && !await _shell.commandExists('node')
-        ? await _exeVersionWindows('node.exe', [
-            r'C:\Program Files\nodejs\node.exe',
-            r'C:\Program Files (x86)\nodejs\node.exe',
-          ])
+        ? await _exeVersionWindows('node.exe', _windowsNodePaths())
         : await _shell.getCommandVersion('node');
 
     if (version == null) {
@@ -87,6 +81,31 @@ class PrerequisiteService {
     );
   }
 
+  /// Common Git install paths on Windows.
+  List<String> _windowsGitPaths() {
+    final home = Platform.environment['USERPROFILE'] ?? r'C:\Users';
+    final localAppData = Platform.environment['LOCALAPPDATA'] ?? r'C:\Users';
+    return [
+      r'C:\Program Files\Git\bin\git.exe',
+      r'C:\Program Files (x86)\Git\bin\git.exe',
+      r'C:\Program Files\Git\cmd\git.exe',
+      r'C:\Program Files (x86)\Git\cmd\git.exe',
+      '$localAppData\\Programs\\Git\\bin\\git.exe',
+      '$home\\scoop\\apps\\git\\current\\bin\\git.exe',
+    ];
+  }
+
+  /// Common Node.js install paths on Windows.
+  List<String> _windowsNodePaths() {
+    final home = Platform.environment['USERPROFILE'] ?? r'C:\Users';
+    return [
+      r'C:\Program Files\nodejs\node.exe',
+      r'C:\Program Files (x86)\nodejs\node.exe',
+      '$home\\scoop\\apps\\nodejs\\current\\node.exe',
+    ];
+  }
+
+  /// Add a directory to the current process PATH (Windows only).
   /// Get version from a Windows exe at known paths.
   Future<String?> _exeVersionWindows(String exeName, List<String> paths) async {
     for (final path in paths) {
@@ -153,10 +172,7 @@ class PrerequisiteService {
 
     // On Windows, check common install paths (git may not be on PATH yet)
     if (!exists && Platform.isWindows) {
-      for (final path in [
-        r'C:\Program Files\Git\bin\git.exe',
-        r'C:\Program Files (x86)\Git\bin\git.exe',
-      ]) {
+      for (final path in _windowsGitPaths()) {
         if (File(path).existsSync()) {
           exists = true;
           break;
@@ -175,10 +191,7 @@ class PrerequisiteService {
 
     // Get version via common paths on Windows if not on PATH
     final version = Platform.isWindows && !await _shell.commandExists('git')
-        ? await _exeVersionWindows('git.exe', [
-            r'C:\Program Files\Git\bin\git.exe',
-            r'C:\Program Files (x86)\Git\bin\git.exe',
-          ])
+        ? await _exeVersionWindows('git.exe', _windowsGitPaths())
         : await _shell.getCommandVersion('git');
 
     if (version == null) {

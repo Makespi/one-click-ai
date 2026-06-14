@@ -239,33 +239,49 @@ class InstallService {
       if (!result.isSuccess) {
         final errorText = result.stderr.isNotEmpty ? result.stderr : result.stdout;
 
-        // If rename/EACCES/EPERM error, retry with --force
-        if (errorText.contains('rename') ||
-            errorText.contains('EACCES') ||
-            errorText.contains('EPERM')) {
+        // Permission error — try with admin privileges
+        if (errorText.contains('EACCES') || errorText.contains('EPERM')) {
           onOutput('');
-          onOutput('文件占用，尝试强制卸载...');
-          onOutput(r'$ npm uninstall -g --force @anthropic-ai/claude-code');
-          onOutput('');
+          onOutput('权限不足，尝试提权卸载...');
 
+          if (Platform.isMacOS) {
+            // macOS: use osascript admin dialog
+            onOutput(r'$ osascript -e ''do shell script "npm uninstall -g @anthropic-ai/claude-code" with administrator privileges''');
+            onOutput('系统将弹出密码输入框...');
+            final sudoResult = await _shell.runStreaming(
+              'osascript',
+              ['-e',
+               'do shell script "npm uninstall -g @anthropic-ai/claude-code" with administrator privileges'],
+              onStdout: onOutput,
+              onStderr: onOutput,
+            );
+            if (sudoResult.isSuccess) {
+              onOutput('');
+              onOutput('✓ Claude Code 已卸载');
+              return const UninstallResult(success: true);
+            }
+          }
+
+          // Also try --force as fallback
+          onOutput('');
+          onOutput('尝试强制卸载...');
+          onOutput(r'$ npm uninstall -g --force @anthropic-ai/claude-code');
           result = await _shell.runStreaming(
             'npm',
             ['uninstall', '-g', '--force', '@anthropic-ai/claude-code'],
             onStdout: onOutput,
             onStderr: onOutput,
           );
+        }
 
-          if (!result.isSuccess) {
-            final err = result.stderr.isNotEmpty ? result.stderr : result.stdout;
-            return UninstallResult(
-              success: false,
-              error: '卸载失败。请手动运行:\n'
-                  'npm uninstall -g --force @anthropic-ai/claude-code\n\n'
-                  '错误: $err',
-            );
-          }
-        } else {
-          return UninstallResult(success: false, error: errorText);
+        if (!result.isSuccess) {
+          final err = result.stderr.isNotEmpty ? result.stderr : result.stdout;
+          return UninstallResult(
+            success: false,
+            error: '卸载失败。请手动运行:\n'
+                'sudo npm uninstall -g @anthropic-ai/claude-code\n\n'
+                '错误: $err',
+          );
         }
       }
 
