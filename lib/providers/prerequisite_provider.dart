@@ -165,6 +165,8 @@ class PrerequisiteProvider extends ChangeNotifier {
   }
 
   /// Re-check a single dependency after install.
+  /// On Windows, also checks common install paths since choco/winget
+  /// may install to directories not immediately on PATH.
   Future<void> recheckDependency(String name) async {
     final index = _results.indexWhere((r) => r.name == name);
     if (index < 0) return;
@@ -172,7 +174,6 @@ class PrerequisiteProvider extends ChangeNotifier {
     switch (name) {
       case 'Node.js':
         await _checkPrerequisite(index, () => _service.checkNodeJs());
-        // Also re-check npm since it comes with Node.js
         final npmIndex = _results.indexWhere((r) => r.name == 'npm');
         if (npmIndex >= 0) {
           await _checkPrerequisite(npmIndex, () => _service.checkNpm());
@@ -186,7 +187,20 @@ class PrerequisiteProvider extends ChangeNotifier {
         break;
     }
 
-    // Clear install state on success
+    // If still not found, retry once more after a short delay
+    // (package managers sometimes return before PATH is updated)
+    if (!_results[index].isReady) {
+      await Future.delayed(const Duration(seconds: 2));
+      switch (name) {
+        case 'Node.js':
+          await _checkPrerequisite(index, () => _service.checkNodeJs());
+          break;
+        case 'Git':
+          await _checkPrerequisite(index, () => _service.checkGit());
+          break;
+      }
+    }
+
     if (_results[index].isReady) {
       _installStates.remove(name);
     }

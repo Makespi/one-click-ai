@@ -147,20 +147,8 @@ class _StepSystemCheckState extends State<StepSystemCheck> {
           const SizedBox(height: 28),
 
           // Section: Prerequisites
-          Row(
-            children: [
-              Text('环境依赖检测',
-                  style: Theme.of(context).textTheme.titleLarge),
-              const Spacer(),
-              if (!prereq.isChecking && !prereq.isAnyInstalling)
-                TextButton.icon(
-                  onPressed: _runChecks,
-                  icon: const Icon(Icons.refresh, size: 18),
-                  label: const Text('重新检测'),
-                  style: TextButton.styleFrom(foregroundColor: AppColors.primary),
-                ),
-            ],
-          ),
+          Text('环境依赖检测',
+              style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 16),
 
           // Prerequisite tiles with install buttons
@@ -173,14 +161,9 @@ class _StepSystemCheckState extends State<StepSystemCheck> {
                 result: result,
                 index: i,
                 installState: installState,
-                canAutoInstall: prereq.canAutoInstall &&
-                    result.name != 'npm' &&
-                    _countdown == 0, // hide individual buttons during countdown
-                onInstall: () => _autoInstall(result.name),
-                onRecheck: () async {
-                  await prereq.recheckDependency(result.name);
-                  if (prereq.allReady) _autoAdvance();
-                },
+                canAutoInstall: false, // fully automatic, no manual buttons
+                onInstall: () {},
+                onRecheck: () {},
               ),
             );
           }),
@@ -363,36 +346,6 @@ class _PrerequisiteCard extends StatelessWidget {
                   hasError: installState.success == false,
                   errorMessage: installState.error,
                 ),
-                if (installState.success == true) ...[
-                  const SizedBox(height: 8),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton.icon(
-                      onPressed: onRecheck,
-                      icon: const Icon(Icons.refresh, size: 16),
-                      label: const Text('重新检测'),
-                      style: TextButton.styleFrom(
-                        foregroundColor: AppColors.success,
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                      ),
-                    ),
-                  ),
-                ],
-                if (installState.success == false) ...[
-                  const SizedBox(height: 8),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton.icon(
-                      onPressed: onInstall,
-                      icon: const Icon(Icons.refresh, size: 16),
-                      label: const Text('重试'),
-                      style: TextButton.styleFrom(
-                        foregroundColor: AppColors.error,
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                      ),
-                    ),
-                  ),
-                ],
               ],
             ],
           ),

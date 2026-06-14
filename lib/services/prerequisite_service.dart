@@ -206,7 +206,9 @@ class PrerequisiteService {
   Future<AutoInstallResult> installNodeJs({
     required void Function(String line) onOutput,
   }) async {
-    for (final pm in _allPackageManagers) {
+    for (var i = 0; i < _allPackageManagers.length; i++) {
+      final pm = _allPackageManagers[i];
+      final hasNext = i < _allPackageManagers.length - 1;
       final cmd = pm.installCommand(['node']);
       onOutput('${pm.displayName}: \$ $cmd');
       onOutput('');
@@ -214,7 +216,6 @@ class PrerequisiteService {
       final result = await _installWithPm(pm, ['node'], onOutput);
       if (result.success) return result;
 
-      // On apt, also try 'nodejs' package name
       if (pm.id == 'apt') {
         onOutput('');
         onOutput('尝试 nodejs 包名...');
@@ -222,7 +223,13 @@ class PrerequisiteService {
         if (aptResult.success) return aptResult;
       }
 
-      onOutput('${pm.displayName} 失败，尝试下一个...');
+      if (hasNext) {
+        onOutput('${pm.displayName} 失败，尝试 ${_allPackageManagers[i + 1].displayName}...');
+      } else {
+        onOutput('${pm.displayName} 安装失败');
+        onOutput('所有包管理器均已尝试，无法自动安装 Node.js');
+        onOutput('请手动安装: https://nodejs.org');
+      }
       onOutput('');
     }
 
@@ -236,7 +243,9 @@ class PrerequisiteService {
   Future<AutoInstallResult> installGit({
     required void Function(String line) onOutput,
   }) async {
-    for (final pm in _allPackageManagers) {
+    for (var i = 0; i < _allPackageManagers.length; i++) {
+      final pm = _allPackageManagers[i];
+      final hasNext = i < _allPackageManagers.length - 1;
       final cmd = pm.installCommand(['git']);
       onOutput('${pm.displayName}: \$ $cmd');
       onOutput('');
@@ -244,7 +253,13 @@ class PrerequisiteService {
       final result = await _installWithPm(pm, ['git'], onOutput);
       if (result.success) return result;
 
-      onOutput('${pm.displayName} 失败，尝试下一个...');
+      if (hasNext) {
+        onOutput('${pm.displayName} 失败，尝试 ${_allPackageManagers[i + 1].displayName}...');
+      } else {
+        onOutput('${pm.displayName} 安装失败');
+        onOutput('所有包管理器均已尝试，无法自动安装 Git');
+        onOutput('请手动安装: https://git-scm.com');
+      }
       onOutput('');
     }
 
