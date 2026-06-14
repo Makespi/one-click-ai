@@ -19,67 +19,65 @@ class OsDetectorService {
       osVersion: _detectOsVersion(os),
       distro: os == 'linux' ? _detectLinuxDistro() : null,
       homeDir: homeDir,
-      packageManager: _detectPackageManager(os),
+      packageManager: _detectPackageManagers(os).firstOrNull,
+      allPackageManagers: _detectPackageManagers(os),
     );
   }
 
-  /// Detect which package manager is available on the system.
-  static PackageManager? _detectPackageManager(String os) {
+  /// Detect all available package managers on the system.
+  static List<PackageManager> _detectPackageManagers(String os) {
+    final result = <PackageManager>[];
     switch (os) {
       case 'macos':
         if (_commandExists('brew')) {
-          return const PackageManager(
+          result.add(const PackageManager(
             id: 'brew',
             displayName: 'Homebrew',
             supportsUnattended: true,
-          );
+          ));
         }
-        return null;
+        break;
       case 'linux':
-        // Try common package managers in priority order
         if (_commandExists('apt')) {
-          return const PackageManager(
+          result.add(const PackageManager(
             id: 'apt',
             displayName: 'APT (apt)',
             supportsUnattended: true,
-          );
+          ));
         }
         if (_commandExists('dnf')) {
-          return const PackageManager(
+          result.add(const PackageManager(
             id: 'dnf',
             displayName: 'DNF (dnf)',
             supportsUnattended: true,
-          );
+          ));
         }
         if (_commandExists('pacman')) {
-          return const PackageManager(
+          result.add(const PackageManager(
             id: 'pacman',
             displayName: 'Pacman',
             supportsUnattended: true,
-          );
+          ));
         }
-        return null;
+        break;
       case 'windows':
-        // Try winget first (built into Windows 11, available for 10)
         if (_commandExists('winget')) {
-          return const PackageManager(
+          result.add(const PackageManager(
             id: 'winget',
             displayName: 'WinGet',
             supportsUnattended: true,
-          );
+          ));
         }
-        // Fallback to Chocolatey
         if (_commandExists('choco')) {
-          return const PackageManager(
+          result.add(const PackageManager(
             id: 'choco',
             displayName: 'Chocolatey',
             supportsUnattended: true,
-          );
+          ));
         }
-        return null;
-      default:
-        return null;
+        break;
     }
+    return result;
   }
 
   /// Check if a command exists on the system PATH or known install locations.

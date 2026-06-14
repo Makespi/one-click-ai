@@ -1,3 +1,4 @@
+import 'dart:io' show HttpClient;
 import 'dart:math' show pi, sin;
 
 import 'package:flutter/material.dart';
@@ -26,6 +27,8 @@ class _WelcomeScreenState extends State<WelcomeScreen>
   bool _showUninstall = false;
   bool _isUninstalling = false;
   final List<String> _uninstallOutput = [];
+  bool? _networkOk;
+  String _networkDetail = '检测中...';
 
   @override
   void initState() {
@@ -35,6 +38,32 @@ class _WelcomeScreenState extends State<WelcomeScreen>
       duration: const Duration(seconds: 3),
     )..repeat();
     _checkClaudeCode();
+    _checkNetwork();
+  }
+
+  Future<void> _checkNetwork() async {
+    try {
+      final stopwatch = Stopwatch()..start();
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 3);
+      final request = await client.getUrl(Uri.parse('https://registry.npmjs.org'));
+      final response = await request.close();
+      stopwatch.stop();
+      client.close();
+      if (mounted) {
+        setState(() {
+          _networkOk = response.statusCode < 500;
+          _networkDetail = '延迟 ${stopwatch.elapsedMilliseconds}ms';
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _networkOk = false;
+          _networkDetail = '网络不可用';
+        });
+      }
+    }
   }
 
   Future<void> _checkClaudeCode() async {
@@ -137,7 +166,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                             delay: 200.ms,
                             curve: Curves.easeOutBack,
                           ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 12),
                       Text(
                         '自动化安装工具',
                         style: TextStyle(
@@ -150,7 +179,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                       )
                           .animate()
                           .fadeIn(duration: 400.ms, delay: 350.ms),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 8),
                       SizedBox(
                         width: 520,
                         child: Text(
@@ -166,36 +195,83 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                       )
                           .animate()
                           .fadeIn(duration: 400.ms, delay: 450.ms),
-                      const SizedBox(height: 26),
+                      const SizedBox(height: 22),
                       _FeatureRow()
                           .animate()
                           .fadeIn(duration: 400.ms, delay: 550.ms),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 16),
                       _SystemCard(platformInfo: platformInfo)
                           .animate()
                           .fadeIn(duration: 400.ms, delay: 700.ms),
 
-                      if (_claudeInstalled == true) ...[
-                        const SizedBox(height: 12),
+                      // Network + Claude status row
+                      if (_networkOk != null || _claudeInstalled == true) ...[
+                        const SizedBox(height: 14),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Icon(Icons.check_circle,
-                                size: 14, color: AppColors.success),
-                            const SizedBox(width: 6),
-                            Text(
-                              'Claude Code 安装成功',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                                color: AppColors.success.withValues(alpha: 0.9),
+                            if (_networkOk != null) ...[
+                              Icon(
+                                _networkOk == true
+                                    ? Icons.wifi_rounded
+                                    : Icons.wifi_off_rounded,
+                                size: 13,
+                                color: _networkOk == true
+                                    ? AppColors.success.withValues(alpha: 0.7)
+                                    : AppColors.error.withValues(alpha: 0.7),
                               ),
-                            ),
+                              const SizedBox(width: 5),
+                              Text(
+                                _networkOk == true
+                                    ? '网络正常'
+                                    : '网络异常',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w400,
+                                  color: _networkOk == true
+                                      ? AppColors.success.withValues(alpha: 0.7)
+                                      : AppColors.error.withValues(alpha: 0.7),
+                                ),
+                              ),
+                              if (_networkOk == true) ...[
+                                const SizedBox(width: 4),
+                                Text(
+                                  _networkDetail,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: AppColors.textMuted.withValues(alpha: 0.6),
+                                  ),
+                                ),
+                              ],
+                            ],
+                            if (_networkOk != null &&
+                                _claudeInstalled == true) ...[
+                              const SizedBox(width: 18),
+                              Container(
+                                width: 1,
+                                height: 12,
+                                color: AppColors.glassBorder,
+                              ),
+                              const SizedBox(width: 18),
+                            ],
+                            if (_claudeInstalled == true) ...[
+                              const Icon(Icons.check_circle,
+                                  size: 13, color: AppColors.success),
+                              const SizedBox(width: 5),
+                              Text(
+                                'Claude Code 已安装',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w400,
+                                  color: AppColors.success.withValues(alpha: 0.8),
+                                ),
+                              ),
+                            ],
                           ],
                         ).animate().fadeIn(duration: 400.ms),
                       ],
 
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 20),
                       LayoutBuilder(
                         builder: (context, constraints) {
                           final startButtonHalf = 125.0; // half of 250px button
@@ -207,11 +283,14 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                               children: [
                                 Center(
                                   child: _StartButton(
-                                    label: _claudeInstalled == true
-                                        ? '开始配置'
-                                        : '开始安装',
+                                    label: _networkOk == false
+                                        ? '网络异常'
+                                        : _claudeInstalled == true
+                                            ? '开始配置'
+                                            : '开始安装',
                                     isLoading: _isUninstalling,
-                                    onPressed: _isUninstalling
+                                    onPressed: (_isUninstalling ||
+                                            _networkOk == false)
                                         ? null
                                         : () {
                                       final isInstalled = _claudeInstalled == true;
@@ -290,6 +369,19 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                         },
                       ),
 
+                      // Network error hint
+                      if (_networkOk == false) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          '⚠ 网络连接异常，请检查网络后重试',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.warning.withValues(alpha: 0.8),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                      ],
+
                       // Uninstall output panel
                       if (_showUninstall && _uninstallOutput.isNotEmpty) ...[
                         const SizedBox(height: 12),
@@ -316,7 +408,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                         ),
                       ],
 
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 18),
                       Text(
                         'v1.0.0 · macOS · Windows · Linux',
                         style: TextStyle(

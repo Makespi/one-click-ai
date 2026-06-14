@@ -41,6 +41,7 @@ class PrerequisiteProvider extends ChangeNotifier {
   PrerequisiteProvider({required PlatformInfo platformInfo}) {
     _service = PrerequisiteService(
       packageManager: platformInfo.packageManager,
+      allPackageManagers: platformInfo.allPackageManagers,
     );
   }
 

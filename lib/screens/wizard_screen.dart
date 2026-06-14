@@ -22,6 +22,7 @@ class WizardScreen extends StatefulWidget {
 class _WizardScreenState extends State<WizardScreen> {
   final _pageController = PageController();
   bool _listening = false;
+  int _lastStepIndex = 0;
 
   @override
   void initState() {
@@ -98,6 +99,12 @@ class _WizardScreenState extends State<WizardScreen> {
     final w = context.read<WizardProvider>();
     final install = context.read<InstallProvider>();
     final config = context.read<ConfigProvider>();
+
+    // Detect step changes and animate PageView
+    if (w.currentStepIndex != _lastStepIndex) {
+      _lastStepIndex = w.currentStepIndex;
+      _goToPage(w.currentStepIndex);
+    }
 
     // Auto-advance: install completed
     if (w.currentStep == WizardStep.install &&

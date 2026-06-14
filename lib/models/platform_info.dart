@@ -65,8 +65,11 @@ class PlatformInfo {
   /// Path to the user's home directory
   final String homeDir;
 
-  /// Detected package manager (may be null if none found)
+  /// Detected package manager(s). On Windows, may have multiple (winget + choco).
   final PackageManager? packageManager;
+
+  /// All detected package managers, in priority order.
+  final List<PackageManager> allPackageManagers;
 
   /// Whether the current OS is macOS
   bool get isMacOS => os == 'macos';
@@ -87,6 +90,7 @@ class PlatformInfo {
     this.distro,
     required this.homeDir,
     this.packageManager,
+    this.allPackageManagers = const [],
   });
 
   /// Returns the display name for the OS with icon indicator

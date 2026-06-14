@@ -8,9 +8,13 @@ import 'shell_service.dart';
 class PrerequisiteService {
   final ShellService _shell = ShellService();
   final PackageManager? _packageManager;
+  final List<PackageManager> _allPackageManagers;
 
-  PrerequisiteService({PackageManager? packageManager})
-      : _packageManager = packageManager;
+  PrerequisiteService({
+    PackageManager? packageManager,
+    List<PackageManager> allPackageManagers = const [],
+  })  : _packageManager = packageManager,
+        _allPackageManagers = allPackageManagers;
 
   /// Minimum required Node.js version
   static const minNodeVersion = '18.0.0';
@@ -146,8 +150,8 @@ class PrerequisiteService {
 
   // ─── Auto-install methods ───────────────────────────────────────
 
-  /// Whether auto-install is available (a package manager was detected).
-  bool get canAutoInstall => _packageManager != null;
+  /// Whether auto-install is available (at least one package manager detected).
+  bool get canAutoInstall => _allPackageManagers.isNotEmpty;
 
   /// Get the detected package manager, if any.
   PackageManager? get packageManager => _packageManager;
@@ -198,44 +202,88 @@ class PrerequisiteService {
     }
   }
 
-  /// Install Node.js automatically using the system package manager.
+  /// Install Node.js — tries all available package managers in sequence.
   Future<AutoInstallResult> installNodeJs({
     required void Function(String line) onOutput,
   }) async {
-    final cmd = _packageManager!.installCommand(['node']);
-    onOutput('\$ $cmd');
-    onOutput('');
-
-    final result = await installPackages(
-      packages: ['node'],
-      onOutput: onOutput,
-    );
-
-    // On Linux with apt, the package is usually named 'nodejs' not 'node'
-    if (!result.success && _packageManager.id == 'apt') {
+    for (final pm in _allPackageManagers) {
+      final cmd = pm.installCommand(['node']);
+      onOutput('${pm.displayName}: \$ $cmd');
       onOutput('');
-      onOutput('尝试 nodejs 包名...');
-      return installPackages(
-        packages: ['nodejs', 'npm'],
-        onOutput: onOutput,
-      );
+
+      final result = await _installWithPm(pm, ['node'], onOutput);
+      if (result.success) return result;
+
+      // On apt, also try 'nodejs' package name
+      if (pm.id == 'apt') {
+        onOutput('');
+        onOutput('尝试 nodejs 包名...');
+        final aptResult = await _installWithPm(pm, ['nodejs', 'npm'], onOutput);
+        if (aptResult.success) return aptResult;
+      }
+
+      onOutput('${pm.displayName} 失败，尝试下一个...');
+      onOutput('');
     }
 
-    return result;
+    return const AutoInstallResult(
+      success: false,
+      error: '所有包管理器均失败，请手动安装 Node.js: https://nodejs.org',
+    );
   }
 
-  /// Install Git automatically using the system package manager.
+  /// Install Git — tries all available package managers in sequence.
   Future<AutoInstallResult> installGit({
     required void Function(String line) onOutput,
   }) async {
-    final cmd = _packageManager!.installCommand(['git']);
-    onOutput('\$ $cmd');
-    onOutput('');
+    for (final pm in _allPackageManagers) {
+      final cmd = pm.installCommand(['git']);
+      onOutput('${pm.displayName}: \$ $cmd');
+      onOutput('');
 
-    return installPackages(
-      packages: ['git'],
-      onOutput: onOutput,
+      final result = await _installWithPm(pm, ['git'], onOutput);
+      if (result.success) return result;
+
+      onOutput('${pm.displayName} 失败，尝试下一个...');
+      onOutput('');
+    }
+
+    return const AutoInstallResult(
+      success: false,
+      error: '所有包管理器均失败，请手动安装 Git: https://git-scm.com',
     );
+  }
+
+  /// Run install with a specific package manager.
+  Future<AutoInstallResult> _installWithPm(
+    PackageManager pm,
+    List<String> packages,
+    void Function(String line) onOutput,
+  ) async {
+    final command = pm.installCommand(packages);
+    if (command.isEmpty) {
+      return const AutoInstallResult(success: false, error: '无法生成安装命令');
+    }
+
+    try {
+      final parts = command.split(' ');
+      final executable = parts.first;
+      final arguments = parts.sublist(1);
+
+      final result = await _shell.runStreaming(
+        executable,
+        arguments,
+        onStdout: onOutput,
+        onStderr: onOutput,
+      );
+
+      return AutoInstallResult(
+        success: result.isSuccess,
+        error: result.isSuccess ? null : result.stderr,
+      );
+    } catch (e) {
+      return AutoInstallResult(success: false, error: e.toString());
+    }
   }
 
   /// Install all missing prerequisites in sequence.
@@ -272,13 +320,14 @@ class PrerequisiteService {
 
   /// Get platform-specific install instructions for a prerequisite.
   String getInstallInstructions(String name) {
-    // If we have a package manager, show the auto-install command
-    if (_packageManager != null) {
+    // Show install command for the first available package manager
+    if (_allPackageManagers.isNotEmpty) {
+      final pm = _allPackageManagers.first;
       switch (name) {
         case 'Node.js':
-          return _packageManager.installCommand(['node']);
+          return '${pm.displayName}: ${pm.installCommand(['node'])}';
         case 'Git':
-          return _packageManager.installCommand(['git']);
+          return '${pm.displayName}: ${pm.installCommand(['git'])}';
       }
     }
 
