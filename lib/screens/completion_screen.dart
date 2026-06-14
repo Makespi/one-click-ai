@@ -201,22 +201,6 @@ class CompletionScreen extends StatelessWidget {
                         ),
                       ),
 
-                      const SizedBox(height: 8),
-
-                      // Close button
-                      SizedBox(
-                        width: 260,
-                        height: 40,
-                        child: TextButton(
-                          onPressed: () {
-                            final nav = Navigator.of(context);
-                            if (nav.canPop()) nav.pop();
-                          },
-                          child: Text('关闭',
-                              style: TextStyle(
-                                  color: AppColors.textMuted.withValues(alpha: 0.7))),
-                        ),
-                      ),
                     ],
                   ],
                 ),

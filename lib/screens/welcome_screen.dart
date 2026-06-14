@@ -136,10 +136,11 @@ class _WelcomeScreenState extends State<WelcomeScreen>
     if (mounted) {
       if (result.success) {
         setState(() {
-          _claudeInstalled = false;
           _isUninstalling = false;
           _uninstallOutput.add('');
           _uninstallOutput.add('✓ 卸载成功');
+          // Re-check actual status
+          _checkClaudeCode();
           // Auto-hide output panel after 3 seconds
           Future.delayed(const Duration(seconds: 3), () {
             if (mounted) {
