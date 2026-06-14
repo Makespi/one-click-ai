@@ -29,7 +29,21 @@ class PrerequisiteService {
   Future<PrerequisiteResult> checkNodeJs() async {
     const name = 'Node.js';
 
-    final exists = await _shell.commandExists('node');
+    var exists = await _shell.commandExists('node');
+
+    // On Windows, check common install paths (node may not be on PATH yet)
+    if (!exists && Platform.isWindows) {
+      for (final path in [
+        r'C:\Program Files\nodejs\node.exe',
+        r'C:\Program Files (x86)\nodejs\node.exe',
+      ]) {
+        if (File(path).existsSync()) {
+          exists = true;
+          break;
+        }
+      }
+    }
+
     if (!exists) {
       return PrerequisiteResult(
         name: name,
@@ -39,7 +53,14 @@ class PrerequisiteService {
       );
     }
 
-    final version = await _shell.getCommandVersion('node');
+    // Get version via common paths on Windows if not on PATH
+    final version = Platform.isWindows && !await _shell.commandExists('node')
+        ? await _exeVersionWindows('node.exe', [
+            r'C:\Program Files\nodejs\node.exe',
+            r'C:\Program Files (x86)\nodejs\node.exe',
+          ])
+        : await _shell.getCommandVersion('node');
+
     if (version == null) {
       return PrerequisiteResult(
         name: name,
@@ -64,6 +85,23 @@ class PrerequisiteService {
       version: version,
       minVersion: minNodeVersion,
     );
+  }
+
+  /// Get version from a Windows exe at known paths.
+  Future<String?> _exeVersionWindows(String exeName, List<String> paths) async {
+    for (final path in paths) {
+      if (File(path).existsSync()) {
+        try {
+          final result = await Process.run(path, ['--version'], runInShell: true);
+          if (result.exitCode == 0) {
+            final output = (result.stdout as String).trim();
+            final match = RegExp(r'(\d+\.\d+\.\d+)').firstMatch(output);
+            return match?.group(1) ?? output;
+          }
+        } catch (_) {}
+      }
+    }
+    return null;
   }
 
   /// Check if npm is installed and meets the minimum version.
@@ -111,7 +149,21 @@ class PrerequisiteService {
   Future<PrerequisiteResult> checkGit() async {
     const name = 'Git';
 
-    final exists = await _shell.commandExists('git');
+    var exists = await _shell.commandExists('git');
+
+    // On Windows, check common install paths (git may not be on PATH yet)
+    if (!exists && Platform.isWindows) {
+      for (final path in [
+        r'C:\Program Files\Git\bin\git.exe',
+        r'C:\Program Files (x86)\Git\bin\git.exe',
+      ]) {
+        if (File(path).existsSync()) {
+          exists = true;
+          break;
+        }
+      }
+    }
+
     if (!exists) {
       return PrerequisiteResult(
         name: name,
@@ -121,7 +173,14 @@ class PrerequisiteService {
       );
     }
 
-    final version = await _shell.getCommandVersion('git');
+    // Get version via common paths on Windows if not on PATH
+    final version = Platform.isWindows && !await _shell.commandExists('git')
+        ? await _exeVersionWindows('git.exe', [
+            r'C:\Program Files\Git\bin\git.exe',
+            r'C:\Program Files (x86)\Git\bin\git.exe',
+          ])
+        : await _shell.getCommandVersion('git');
+
     if (version == null) {
       return PrerequisiteResult(
         name: name,

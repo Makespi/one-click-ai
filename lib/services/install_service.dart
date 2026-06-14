@@ -229,7 +229,7 @@ class InstallService {
     onOutput('');
 
     try {
-      final result = await _shell.runStreaming(
+      var result = await _shell.runStreaming(
         'npm',
         ['uninstall', '-g', '@anthropic-ai/claude-code'],
         onStdout: onOutput,
@@ -238,7 +238,35 @@ class InstallService {
 
       if (!result.isSuccess) {
         final errorText = result.stderr.isNotEmpty ? result.stderr : result.stdout;
-        return UninstallResult(success: false, error: errorText);
+
+        // If rename/EACCES/EPERM error, retry with --force
+        if (errorText.contains('rename') ||
+            errorText.contains('EACCES') ||
+            errorText.contains('EPERM')) {
+          onOutput('');
+          onOutput('文件占用，尝试强制卸载...');
+          onOutput(r'$ npm uninstall -g --force @anthropic-ai/claude-code');
+          onOutput('');
+
+          result = await _shell.runStreaming(
+            'npm',
+            ['uninstall', '-g', '--force', '@anthropic-ai/claude-code'],
+            onStdout: onOutput,
+            onStderr: onOutput,
+          );
+
+          if (!result.isSuccess) {
+            final err = result.stderr.isNotEmpty ? result.stderr : result.stdout;
+            return UninstallResult(
+              success: false,
+              error: '卸载失败。请手动运行:\n'
+                  'npm uninstall -g --force @anthropic-ai/claude-code\n\n'
+                  '错误: $err',
+            );
+          }
+        } else {
+          return UninstallResult(success: false, error: errorText);
+        }
       }
 
       onOutput('');
