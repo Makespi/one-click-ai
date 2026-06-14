@@ -235,7 +235,13 @@ class _StepSystemCheckState extends State<StepSystemCheck> {
                       color: AppColors.background,
                       child: SingleChildScrollView(
                         child: Text(
-                          allOutput.isNotEmpty ? allOutput.join('\n') : '等待依赖检测...',
+                          allOutput.isNotEmpty
+                              ? allOutput.join('\n')
+                              : prereq.isChecking
+                                  ? '正在检测系统依赖...'
+                                  : prereq.allReady
+                                      ? '✓ 所有依赖就绪，即将自动进入安装...'
+                                      : '等待依赖检测...',
                           style: const TextStyle(
                             fontFamily: 'monospace',
                             fontSize: 12,

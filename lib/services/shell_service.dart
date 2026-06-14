@@ -88,7 +88,7 @@ class ShellService {
         workingDirectory: workingDirectory,
         runInShell: _isWindows,
         environment: _isWindows ? null : _extendedEnv,
-      );
+      ).timeout(const Duration(seconds: 15));
       return ShellResult(
         exitCode: result.exitCode,
         stdout: (result.stdout as String).trim(),
