@@ -36,6 +36,7 @@ class PrerequisiteService {
       for (final path in _windowsNodePaths()) {
         if (File(path).existsSync()) {
           exists = true;
+          _addBinToUserPath(path);
           break;
         }
       }
@@ -106,6 +107,21 @@ class PrerequisiteService {
   }
 
   /// Add a directory to the current process PATH (Windows only).
+  /// Add a bin directory to the Windows user PATH (via PowerShell).
+  void _addBinToUserPath(String exePath) {
+    if (!Platform.isWindows) return;
+    try {
+      final binDir = exePath.substring(0, exePath.lastIndexOf('\\'));
+      final currentUserPath = Platform.environment['PATH'] ?? '';
+      if (!currentUserPath.contains(binDir)) {
+        // Use PowerShell to safely append to user PATH
+        final psCmd = '[Environment]::SetEnvironmentVariable(\'PATH\', '
+            '[Environment]::GetEnvironmentVariable(\'PATH\', \'User\') + \';$binDir\', \'User\')';
+        Process.runSync('powershell', ['-Command', psCmd], runInShell: true);
+      }
+    } catch (_) {}
+  }
+
   /// Get version from a Windows exe at known paths.
   Future<String?> _exeVersionWindows(String exeName, List<String> paths) async {
     for (final path in paths) {
@@ -127,7 +143,20 @@ class PrerequisiteService {
   Future<PrerequisiteResult> checkNpm() async {
     const name = 'npm';
 
-    final exists = await _shell.commandExists('npm');
+    var exists = await _shell.commandExists('npm');
+
+    // On Windows, check common install paths (npm may not be on PATH yet)
+    if (!exists && Platform.isWindows) {
+      for (final dir in _windowsNodePaths()) {
+        // Node is at C:\...\node.exe; npm is C:\...\npm.cmd
+        final npmPath = '${dir.substring(0, dir.lastIndexOf('\\') + 1)}npm.cmd';
+        if (File(npmPath).existsSync()) {
+          exists = true;
+          break;
+        }
+      }
+    }
+
     if (!exists) {
       return PrerequisiteResult(
         name: name,
@@ -137,7 +166,13 @@ class PrerequisiteService {
       );
     }
 
-    final version = await _shell.getCommandVersion('npm');
+    // Get version via common paths on Windows if not on PATH
+    final version = Platform.isWindows && !await _shell.commandExists('npm')
+        ? await _exeVersionWindows('npm.cmd', _windowsNodePaths()
+            .map((p) => '${p.substring(0, p.lastIndexOf('\\') + 1)}npm.cmd')
+            .toList())
+        : await _shell.getCommandVersion('npm');
+
     if (version == null) {
       return PrerequisiteResult(
         name: name,
@@ -175,6 +210,8 @@ class PrerequisiteService {
       for (final path in _windowsGitPaths()) {
         if (File(path).existsSync()) {
           exists = true;
+          // Auto-add to user PATH
+          _addBinToUserPath(path);
           break;
         }
       }

@@ -140,6 +140,15 @@ class _WelcomeScreenState extends State<WelcomeScreen>
           _isUninstalling = false;
           _uninstallOutput.add('');
           _uninstallOutput.add('✓ 卸载成功');
+          // Auto-hide output panel after 3 seconds
+          Future.delayed(const Duration(seconds: 3), () {
+            if (mounted) {
+              setState(() {
+                _showUninstall = false;
+                _uninstallOutput.clear();
+              });
+            }
+          });
         });
       } else {
         setState(() {
