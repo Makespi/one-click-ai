@@ -29,7 +29,7 @@ class ShellService {
       _isWindows ? 'where' : 'which',
       [command],
       runInShell: _isWindows,
-    );
+    ).timeout(const Duration(seconds: 10));
     if (result.exitCode == 0 && (result.stdout as String).trim().isNotEmpty) {
       return (result.stdout as String).trim().split('\n').first.trim();
     }
@@ -111,12 +111,16 @@ class ShellService {
         return true;
       }
       // Fallback: try running the command directly (runInShell handles .cmd)
-      final versionResult = await Process.run(
-        command,
-        ['--version'],
-        runInShell: true,
-      );
-      return versionResult.exitCode == 0;
+      try {
+        final versionResult = await Process.run(
+          command,
+          ['--version'],
+          runInShell: true,
+        ).timeout(const Duration(seconds: 10));
+        return versionResult.exitCode == 0;
+      } catch (_) {
+        return false;
+      }
     }
     // macOS/Linux: resolve full path including Homebrew locations
     final resolved = await _resolveCommand(command);
@@ -160,7 +164,7 @@ class ShellService {
         command,
         [flag],
         runInShell: _isWindows,
-      );
+      ).timeout(const Duration(seconds: 10));
       return ShellResult(
         exitCode: result.exitCode,
         stdout: (result.stdout as String).trim(),

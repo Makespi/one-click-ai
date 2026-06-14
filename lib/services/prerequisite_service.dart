@@ -127,7 +127,8 @@ class PrerequisiteService {
     for (final path in paths) {
       if (File(path).existsSync()) {
         try {
-          final result = await Process.run(path, ['--version'], runInShell: true);
+          final result = await Process.run(path, ['--version'], runInShell: true)
+              .timeout(const Duration(seconds: 10));
           if (result.exitCode == 0) {
             final output = (result.stdout as String).trim();
             final match = RegExp(r'(\d+\.\d+\.\d+)').firstMatch(output);
