@@ -68,13 +68,6 @@ class OsDetectorService {
             supportsUnattended: true,
           ));
         }
-        if (_commandExists('choco')) {
-          result.add(const PackageManager(
-            id: 'choco',
-            displayName: 'Chocolatey',
-            supportsUnattended: true,
-          ));
-        }
         break;
     }
     return result;
