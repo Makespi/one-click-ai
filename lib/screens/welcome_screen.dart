@@ -6,6 +6,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 
 import '../models/platform_info.dart';
+import '../services/activation_service.dart';
 import '../services/install_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/custom_title_bar.dart';
@@ -30,6 +31,13 @@ class _WelcomeScreenState extends State<WelcomeScreen>
   bool? _networkOk;
   String _networkDetail = '检测中...';
 
+  // Activation
+  ActivationData? _activation;
+  bool _activationChecked = false;
+  final _codeController = TextEditingController();
+  bool _activating = false;
+  String? _activateError;
+
   @override
   void initState() {
     super.initState();
@@ -37,8 +45,48 @@ class _WelcomeScreenState extends State<WelcomeScreen>
       vsync: this,
       duration: const Duration(seconds: 3),
     )..repeat();
+    _checkActivation();
     _checkClaudeCode();
     _checkNetwork();
+  }
+
+  Future<void> _checkActivation() async {
+    final data = await ActivationService.readActivation();
+    if (mounted) {
+      setState(() {
+        _activation = data;
+        _activationChecked = true;
+      });
+    }
+  }
+
+  Future<void> _doActivate() async {
+    final code = _codeController.text.replaceAll('-', '').toUpperCase();
+    if (code.length != 16) {
+      setState(() => _activateError = '请输入完整的16位激活码');
+      return;
+    }
+    // Format: BD72-12D8-A0C5-3A61
+    final formatted = '${code.substring(0, 4)}-${code.substring(4, 8)}-${code.substring(8, 12)}-${code.substring(12, 16)}';
+
+    setState(() {
+      _activating = true;
+      _activateError = null;
+    });
+
+    final result = await ActivationService.activate(formatted);
+    if (mounted) {
+      setState(() {
+        _activating = false;
+        if (result.success) {
+          _activation = result.data;
+          _activateError = null;
+          _codeController.clear();
+        } else {
+          _activateError = result.message;
+        }
+      });
+    }
   }
 
   Future<void> _checkNetwork() async {
@@ -70,6 +118,9 @@ class _WelcomeScreenState extends State<WelcomeScreen>
     final installed = await InstallService().isClaudeCodeInstalled();
     if (mounted) setState(() => _claudeInstalled = installed);
   }
+
+  bool get _isActivated =>
+      _activation != null && _activation!.isValid;
 
   Future<void> _doUninstall() async {
     setState(() {
@@ -103,6 +154,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
   @override
   void dispose() {
     _glowController.dispose();
+    _codeController.dispose();
     super.dispose();
   }
 
@@ -271,44 +323,74 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                         ).animate().fadeIn(duration: 400.ms),
                       ],
 
-                      const SizedBox(height: 20),
-                      LayoutBuilder(
-                        builder: (context, constraints) {
-                          final startButtonHalf = 125.0; // half of 250px button
-                          final centerX = constraints.maxWidth / 2;
-                          return SizedBox(
-                            width: double.infinity,
-                            height: 56,
-                            child: Stack(
-                              children: [
-                                Center(
-                                  child: _StartButton(
-                                    label: _networkOk == false
-                                        ? '网络异常'
-                                        : _claudeInstalled == true
-                                            ? '开始配置'
-                                            : '开始安装',
-                                    isLoading: _isUninstalling,
-                                    onPressed: (_isUninstalling ||
-                                            _networkOk == false)
-                                        ? null
-                                        : () {
-                                      final isInstalled = _claudeInstalled == true;
-                                      if (isInstalled) {
-                                        Navigator.of(context).push(
-                                          MaterialPageRoute(
-                                            builder: (_) => const DirectConfigureScreen(),
-                                          ),
-                                        );
-                                      } else {
-                                        Navigator.of(context).pushReplacement(
-                                          MaterialPageRoute(
-                                            builder: (_) => const WizardScreen(),
-                                          ),
-                                        );
-                                      }
-                                    },
-                                  )
+                      // ── Activation section ──────────────────────
+                      if (_activationChecked && !_isActivated) ...[
+                        const SizedBox(height: 18),
+                        _ActivationPanel(
+                          controller: _codeController,
+                          activating: _activating,
+                          error: _activateError,
+                          onActivate: _doActivate,
+                        ),
+                      ],
+                      if (_isActivated) ...[
+                        const SizedBox(height: 10),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.verified_user,
+                                size: 14, color: AppColors.success),
+                            const SizedBox(width: 6),
+                            Text(
+                              '已激活 · 有效期至 ${_activation!.expireText}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: AppColors.success.withValues(alpha: 0.8),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+
+                      // ── Buttons + uninstall (only when activated) ──
+                      if (_isActivated) ...[
+                        const SizedBox(height: 20),
+                        LayoutBuilder(
+                          builder: (context, constraints) {
+                            final startButtonHalf = 125.0;
+                            final centerX = constraints.maxWidth / 2;
+                            return SizedBox(
+                              width: double.infinity,
+                              height: 56,
+                              child: Stack(
+                                children: [
+                                  Center(
+                                    child: _StartButton(
+                                      label: _networkOk == false
+                                          ? '网络异常'
+                                          : _claudeInstalled == true
+                                              ? '开始配置'
+                                              : '开始安装',
+                                      isLoading: _isUninstalling,
+                                      onPressed: (_isUninstalling || _networkOk == false)
+                                          ? null
+                                          : () {
+                                        final isInstalled = _claudeInstalled == true;
+                                        if (isInstalled) {
+                                          Navigator.of(context).push(
+                                            MaterialPageRoute(
+                                              builder: (_) => const DirectConfigureScreen(),
+                                            ),
+                                          );
+                                        } else {
+                                          Navigator.of(context).pushReplacement(
+                                            MaterialPageRoute(
+                                              builder: (_) => const WizardScreen(),
+                                            ),
+                                          );
+                                        }
+                                      },
+                                    )
                                       .animate()
                                       .fadeIn(duration: 600.ms, delay: 1300.ms)
                                       .scale(
@@ -407,6 +489,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                           ),
                         ),
                       ],
+                      ], // end if (_isActivated)
 
                       const SizedBox(height: 18),
                       Text(
@@ -743,42 +826,208 @@ class _StartButtonState extends State<_StartButton> {
   }
 }
 
-/// Uninstall button — shown next to the main CTA when Claude Code is installed.
-class _UninstallButton extends StatelessWidget {
+/// Uninstall button — fades in smoothly when Claude Code is installed.
+class _UninstallButton extends StatefulWidget {
   final VoidCallback onTap;
 
   const _UninstallButton({required this.onTap});
 
   @override
+  State<_UninstallButton> createState() => _UninstallButtonState();
+}
+
+class _UninstallButtonState extends State<_UninstallButton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _fade;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+    _fade = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
+    // Delayed start for staggered entrance
+    Future.delayed(const Duration(milliseconds: 1300), () {
+      if (mounted) _ctrl.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 56,
-        padding: const EdgeInsets.symmetric(horizontal: 18),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(14),
-          color: AppColors.error.withValues(alpha: 0.06),
-          border: Border.all(
-            color: AppColors.error.withValues(alpha: 0.12),
+    return FadeTransition(
+      opacity: _fade,
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: Container(
+          height: 56,
+          width: 56,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            color: AppColors.surfaceCard.withValues(alpha: 0.3),
+            border: Border.all(color: AppColors.glassBorder.withValues(alpha: 0.5)),
           ),
-        ),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.delete_outline_rounded, size: 18, color: AppColors.error),
-            SizedBox(width: 6),
-            Text(
-              '一键卸载',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: AppColors.error,
-              ),
-            ),
-          ],
+          child: const Icon(
+            Icons.delete_outline_rounded,
+            size: 20,
+            color: AppColors.textMuted,
+          ),
         ),
       ),
     );
+  }
+}
+
+/// Activation code input panel.
+class _ActivationPanel extends StatefulWidget {
+  final TextEditingController controller;
+  final bool activating;
+  final String? error;
+  final VoidCallback onActivate;
+
+  const _ActivationPanel({
+    required this.controller,
+    required this.activating,
+    this.error,
+    required this.onActivate,
+  });
+
+  @override
+  State<_ActivationPanel> createState() => _ActivationPanelState();
+}
+
+class _ActivationPanelState extends State<_ActivationPanel> {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.glassBorder),
+        color: AppColors.surfaceCard.withValues(alpha: 0.3),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.vpn_key_rounded, size: 16, color: AppColors.warning),
+              const SizedBox(width: 8),
+              Text(
+                '请输入激活码以继续使用',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              SizedBox(
+                width: 240,
+                child: TextField(
+                  controller: widget.controller,
+                  enabled: !widget.activating,
+                  textAlign: TextAlign.center,
+                  maxLength: 19,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 4,
+                    fontFamily: 'monospace',
+                    color: AppColors.textPrimary,
+                  ),
+                  decoration: InputDecoration(
+                    counterText: '',
+                    hintText: 'BD72-12D8-A0C5-3A61',
+                    hintStyle: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w400,
+                      letterSpacing: 2,
+                      fontFamily: 'monospace',
+                      color: AppColors.textMuted.withValues(alpha: 0.4),
+                    ),
+                    filled: true,
+                    fillColor: AppColors.surface,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: AppColors.glassBorder),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: AppColors.glassBorder),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: AppColors.primary, width: 2),
+                    ),
+                  ),
+                  onChanged: (v) => _formatCode(),
+                ),
+              ),
+              const SizedBox(width: 10),
+              SizedBox(
+                height: 46,
+                child: ElevatedButton(
+                  onPressed: widget.activating ? null : widget.onActivate,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  child: widget.activating
+                      ? const SizedBox(
+                          width: 16, height: 16,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Text('激活', style: TextStyle(fontSize: 14)),
+                ),
+              ),
+            ],
+          ),
+          if (widget.error != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              widget.error!,
+              style: const TextStyle(fontSize: 12, color: AppColors.error),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  void _formatCode() {
+    var text = widget.controller.text.replaceAll('-', '').toUpperCase();
+    if (text.length > 16) text = text.substring(0, 16);
+    final buf = StringBuffer();
+    for (var i = 0; i < text.length; i++) {
+      if (i > 0 && i % 4 == 0) buf.write('-');
+      buf.write(text[i]);
+    }
+    final formatted = buf.toString();
+    if (formatted != widget.controller.text) {
+      widget.controller.value = TextEditingValue(
+        text: formatted,
+        selection: TextSelection.collapsed(offset: formatted.length),
+      );
+    }
   }
 }
