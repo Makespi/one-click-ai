@@ -1,4 +1,4 @@
-import 'dart:io' show Platform;
+import 'dart:io' show File, FileMode, Platform, Process;
 
 import '../models/platform_info.dart';
 import '../models/prerequisite_result.dart';
@@ -227,16 +227,14 @@ class PrerequisiteService {
         onOutput('${pm.displayName} 失败，尝试 ${_allPackageManagers[i + 1].displayName}...');
       } else {
         onOutput('${pm.displayName} 安装失败');
-        onOutput('所有包管理器均已尝试，无法自动安装 Node.js');
-        onOutput('请手动安装: https://nodejs.org');
       }
       onOutput('');
     }
 
-    return const AutoInstallResult(
-      success: false,
-      error: '所有包管理器均失败，请手动安装 Node.js: https://nodejs.org',
-    );
+    // All package managers failed — try direct download
+    onOutput('');
+    onOutput('包管理器均失败，尝试直接下载安装...');
+    return _installNodeDirectly(onOutput);
   }
 
   /// Install Git — tries all available package managers in sequence.
@@ -257,15 +255,274 @@ class PrerequisiteService {
         onOutput('${pm.displayName} 失败，尝试 ${_allPackageManagers[i + 1].displayName}...');
       } else {
         onOutput('${pm.displayName} 安装失败');
-        onOutput('所有包管理器均已尝试，无法自动安装 Git');
-        onOutput('请手动安装: https://git-scm.com');
       }
       onOutput('');
     }
 
-    return const AutoInstallResult(
-      success: false,
-      error: '所有包管理器均失败，请手动安装 Git: https://git-scm.com',
+    // All package managers failed — try direct download
+    onOutput('');
+    onOutput('包管理器均失败，尝试直接下载安装...');
+    return _installGitDirectly(onOutput);
+  }
+
+  /// Download and install Node.js directly from nodejs.org.
+  Future<AutoInstallResult> _installNodeDirectly(
+    void Function(String line) onOutput,
+  ) async {
+    final arch = _detectArch();
+    if (Platform.isMacOS) {
+      final url = arch == 'arm64'
+          ? 'https://nodejs.org/dist/v20.18.0/node-v20.18.0.pkg'
+          : 'https://nodejs.org/dist/v20.18.0/node-v20.18.0.pkg';
+      return _macOSInstallPkg(url, 'Node.js', onOutput);
+    } else if (Platform.isWindows) {
+      final url = arch == 'arm64'
+          ? 'https://nodejs.org/dist/v20.18.0/node-v20.18.0-arm64.msi'
+          : 'https://nodejs.org/dist/v20.18.0/node-v20.18.0-x64.msi';
+      return _windowsInstallMsi(url, 'Node.js', onOutput);
+    } else {
+      final url = arch == 'arm64'
+          ? 'https://nodejs.org/dist/v20.18.0/node-v20.18.0-linux-arm64.tar.xz'
+          : 'https://nodejs.org/dist/v20.18.0/node-v20.18.0-linux-x64.tar.xz';
+      return _linuxInstallTarball(url, 'Node.js', onOutput);
+    }
+  }
+
+  String _detectArch() {
+    try {
+      final result = Process.runSync('uname', ['-m']);
+      final output = (result.stdout as String).trim();
+      if (output.contains('arm') || output.contains('aarch')) return 'arm64';
+    } catch (_) {}
+    return 'x64';
+  }
+
+  /// Download and install Git directly.
+  Future<AutoInstallResult> _installGitDirectly(
+    void Function(String line) onOutput,
+  ) async {
+    if (Platform.isMacOS) {
+      // macOS: check if git is already available (usually bundled with Xcode CLT)
+      final gitExists = await _shell.commandExists('git');
+      if (gitExists) {
+        onOutput('Git 已可用');
+        return const AutoInstallResult(success: true);
+      }
+      onOutput('尝试安装 Xcode Command Line Tools (包含 Git)...');
+      onOutput(r'$ xcode-select --install');
+      await _shell.run('xcode-select', ['--install']);
+      // Give it a moment and try again
+      final recheck = await _shell.commandExists('git');
+      return AutoInstallResult(
+        success: recheck,
+        error: recheck ? null : 'Git 安装可能需要手动完成',
+      );
+    } else if (Platform.isWindows) {
+      final arch = _detectArch();
+      final url = arch == 'arm64'
+          ? 'https://github.com/git-for-windows/git/releases/download/v2.47.0.windows.1/Git-2.47.0-64-bit.exe'
+          : 'https://github.com/git-for-windows/git/releases/download/v2.47.0.windows.1/Git-2.47.0-64-bit.exe';
+      return _windowsInstallExe(url, '/VERYSILENT /NORESTART', 'Git', onOutput);
+    } else {
+      // Linux: most distros have git available, try direct check
+      final exists = await _shell.commandExists('git');
+      if (exists) {
+        onOutput('Git 已可用');
+        return const AutoInstallResult(success: true);
+      }
+      return const AutoInstallResult(
+        success: false,
+        error: '请使用系统包管理器安装 Git，或访问 https://git-scm.com',
+      );
+    }
+  }
+
+  /// Download and run a macOS .pkg installer.
+  Future<AutoInstallResult> _macOSInstallPkg(
+    String url,
+    String name,
+    void Function(String line) onOutput,
+  ) async {
+    final home = Platform.environment['HOME'] ?? '/tmp';
+    final pkgPath = '$home/Downloads/${name}_installer.pkg';
+
+    onOutput('下载 $name...');
+    onOutput('\$ curl -L -o $pkgPath $url');
+
+    final dlResult = await _shell.runStreaming(
+      'curl', ['-L', '-o', pkgPath, url, '--progress-bar'],
+      onStdout: onOutput,
+      onStderr: onOutput,
+    );
+
+    if (!dlResult.isSuccess) {
+      return AutoInstallResult(success: false, error: '下载失败');
+    }
+
+    onOutput('');
+    onOutput('安装 $name...');
+    onOutput('\$ open $pkgPath');
+
+    final installResult = await _shell.runStreaming(
+      'open', ['-W', pkgPath],
+      onStdout: onOutput,
+      onStderr: onOutput,
+    );
+
+
+    // Cleanup
+    try { File(pkgPath).deleteSync(); } catch (_) {}
+
+    return AutoInstallResult(
+      success: installResult.isSuccess,
+      error: installResult.isSuccess ? null : installResult.stderr,
+    );
+  }
+
+  /// Download and run a Windows .msi installer.
+  Future<AutoInstallResult> _windowsInstallMsi(
+    String url,
+    String name,
+    void Function(String line) onOutput,
+  ) async {
+    final tmp = Platform.environment['TEMP'] ?? r'C:\Windows\Temp';
+    final msiPath = '$tmp\\${name}_installer.msi';
+
+    onOutput('下载 $name...');
+    onOutput('\$ curl -L -o $msiPath $url');
+
+    final dlResult = await _shell.runStreaming(
+      'curl', ['-L', '-o', msiPath, url, '--progress-bar'],
+      onStdout: onOutput,
+      onStderr: onOutput,
+    );
+
+    if (!dlResult.isSuccess) {
+      return AutoInstallResult(success: false, error: '下载失败');
+    }
+
+    onOutput('');
+    onOutput('安装 $name (静默)...');
+    onOutput('\$ msiexec /i $msiPath /quiet /norestart');
+
+    final installResult = await _shell.runStreaming(
+      'msiexec', ['/i', msiPath, '/quiet', '/norestart'],
+      onStdout: onOutput,
+      onStderr: onOutput,
+    );
+
+    try { File(msiPath).deleteSync(); } catch (_) {}
+
+    return AutoInstallResult(
+      success: installResult.isSuccess,
+      error: installResult.isSuccess ? null : installResult.stderr,
+    );
+  }
+
+  /// Download and run a Windows .exe installer.
+  Future<AutoInstallResult> _windowsInstallExe(
+    String url,
+    String silentArgs,
+    String name,
+    void Function(String line) onOutput,
+  ) async {
+    final tmp = Platform.environment['TEMP'] ?? r'C:\Windows\Temp';
+    final exePath = '$tmp\\${name}_installer.exe';
+
+    onOutput('下载 $name...');
+    onOutput('\$ curl -L -o $exePath $url');
+
+    final dlResult = await _shell.runStreaming(
+      'curl', ['-L', '-o', exePath, url, '--progress-bar'],
+      onStdout: onOutput,
+      onStderr: onOutput,
+    );
+
+    if (!dlResult.isSuccess) {
+      return AutoInstallResult(success: false, error: '下载失败');
+    }
+
+    onOutput('');
+    onOutput('安装 $name (静默)...');
+    onOutput('\$ $exePath $silentArgs');
+
+    final parts = silentArgs.split(' ');
+    final installResult = await _shell.runStreaming(
+      exePath, parts,
+      onStdout: onOutput,
+      onStderr: onOutput,
+    );
+
+    try { File(exePath).deleteSync(); } catch (_) {}
+
+    return AutoInstallResult(
+      success: installResult.isSuccess,
+      error: installResult.isSuccess ? null : installResult.stderr,
+    );
+  }
+
+  /// Download and extract a Linux .tar.xz tarball.
+  Future<AutoInstallResult> _linuxInstallTarball(
+    String url,
+    String name,
+    void Function(String line) onOutput,
+  ) async {
+    final tmp = '/tmp/${name}_installer.tar.xz';
+
+    onOutput('下载 $name...');
+    onOutput('\$ curl -L -o $tmp $url');
+
+    final dlResult = await _shell.runStreaming(
+      'curl', ['-L', '-o', tmp, url, '--progress-bar'],
+      onStdout: onOutput,
+      onStderr: onOutput,
+    );
+
+    if (!dlResult.isSuccess) {
+      return AutoInstallResult(success: false, error: '下载失败');
+    }
+
+    final home = Platform.environment['HOME'] ?? '/home';
+    final installDir = '$home/.local';
+    final binDir = '$installDir/bin';
+
+    onOutput('');
+    onOutput('解压并安装到 $installDir...');
+    onOutput('\$ mkdir -p $installDir && tar -xJf $tmp -C $installDir --strip-components=1');
+
+    await _shell.run('mkdir', ['-p', installDir]);
+    final installResult = await _shell.runStreaming(
+      'tar', ['-xJf', tmp, '-C', installDir, '--strip-components=1'],
+      onStdout: onOutput,
+      onStderr: onOutput,
+    );
+
+    if (installResult.isSuccess) {
+      onOutput('');
+      onOutput('已安装到 $installDir');
+      onOutput('添加 PATH: export PATH=$binDir:\$PATH');
+
+      // Update shell rc files to include the new PATH
+      final pathLine = 'export PATH=$binDir:\$PATH';
+      for (final rc in ['$home/.bashrc', '$home/.profile', '$home/.zshrc']) {
+        try {
+          final f = File(rc);
+          if (await f.exists()) {
+            final content = await f.readAsString();
+            if (!content.contains(binDir)) {
+              await f.writeAsString('$content\n# Node.js\n$pathLine\n',
+                  mode: FileMode.append);
+            }
+          }
+        } catch (_) {}
+      }
+    }
+
+    try { File(tmp).deleteSync(); } catch (_) {}
+
+    return AutoInstallResult(
+      success: installResult.isSuccess,
+      error: installResult.isSuccess ? null : installResult.stderr,
     );
   }
 
