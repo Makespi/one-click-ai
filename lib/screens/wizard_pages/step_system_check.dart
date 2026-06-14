@@ -32,7 +32,8 @@ class _StepSystemCheckState extends State<StepSystemCheck> {
       final p = context.read<PrerequisiteProvider>();
       if (p.allReady) {
         _autoAdvance();
-      } else if (p.canAutoInstall) {
+      } else {
+        // Always start countdown — direct download fallback works without a package manager
         _startCountdown();
       }
     });
@@ -156,7 +157,7 @@ class _StepSystemCheckState extends State<StepSystemCheck> {
                 const SizedBox(height: 8),
 
                 // Countdown / status banner
-                if (!prereq.isChecking && !prereq.allReady && prereq.canAutoInstall) ...[
+                if (!prereq.isChecking && !prereq.allReady) ...[
                   if (_countdown > 0 && !anyInstalling)
                     GlassContainer(
                       padding: const EdgeInsets.all(14),
