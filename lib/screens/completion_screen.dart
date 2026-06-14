@@ -158,8 +158,9 @@ class CompletionScreen extends StatelessWidget {
                         width: 280,
                         height: 52,
                         child: ElevatedButton.icon(
-                          onPressed: () {
-                            launchClaudeInTerminal();
+                          onPressed: () async {
+                            await launchClaudeInTerminal();
+                            await Future.delayed(const Duration(milliseconds: 500));
                             exit(0);
                           },
                           icon: const Icon(Icons.terminal_rounded, size: 20),
