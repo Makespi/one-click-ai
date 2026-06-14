@@ -336,7 +336,10 @@ Future<void> launchClaudeInTerminal() async {
       'tell application "Terminal" to do script "claude"',
     ]);
   } else if (Platform.isWindows) {
-    await Process.start('cmd', ['/k', 'claude'], runInShell: true);
+    // Open a new visible cmd window: cmd /c start "Claude Code" cmd /k claude
+    await Process.start('cmd',
+        ['/c', 'start', 'Claude Code', 'cmd', '/k', 'claude'],
+        runInShell: true);
   } else {
     // Linux: try common terminals
     for (final term in ['gnome-terminal', 'konsole', 'xterm']) {
